@@ -13,16 +13,18 @@ public class spawner : MonoBehaviour
 {
     public List<GameObjectPair> objs = new List<GameObjectPair>();
 
-    public void respawn()
+    public Transform parent;
+
+    public void respawn(Transform parent)
     {
         for (int i = 0; i < objs.Count; i++)
         {
-            Instantiate(objs[i].prefab, objs[i].spawnPoint.transform.position, Quaternion.identity);
+            GameObject obj = Instantiate(objs[i].prefab, objs[i].spawnPoint.transform.position, Quaternion.identity, parent);
         }
     }
     public void Start()
     {
-        respawn();
+        respawn(parent);
     }
     public void Update()
     {
@@ -35,7 +37,7 @@ public class spawner : MonoBehaviour
 
             foreach (GameObject obj in green) Destroy(obj);
             foreach (GameObject obj in purple) Destroy(obj);
-            respawn();
+            respawn(parent);
         }
     }
 }
