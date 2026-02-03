@@ -5,6 +5,10 @@ public class movement : MonoBehaviour
     private Vector3 Velocity;
     private Vector3 PlayerMovementInput;
 
+    public string joystickRightAxisXName;
+
+    public string joystickLeftAxisYName;
+
     [Header("Components Needed")]
     [SerializeField] private CharacterController Controller;
 
@@ -23,11 +27,18 @@ public class movement : MonoBehaviour
 
     void Update()
     {
-        PlayerMovementInput = new Vector3(
-            Input.GetAxisRaw("Horizontal"),
+        float keyboardX = Input.GetAxisRaw("Horizontal");
+        float keyboardZ = Input.GetAxisRaw("Vertical");
+
+        float joystickZ = Input.GetAxisRaw(joystickLeftAxisYName);
+
+        Vector3 input = new Vector3(
             0f,
-            Input.GetAxisRaw("Vertical")
+            0f,
+            keyboardZ + joystickZ
         );
+
+        PlayerMovementInput = Vector3.ClampMagnitude(input, 1f);
 
         RotatePlayer();
         MovePlayer();
@@ -48,7 +59,7 @@ public class movement : MonoBehaviour
 
     private void RotatePlayer()
     {
-        float rotation = 0f;
+        float rotation = Input.GetAxis(joystickRightAxisXName);
 
         if (Input.GetKey(KeyCode.O))
         {

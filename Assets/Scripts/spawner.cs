@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 [System.Serializable]
 public class GameObjectPair
@@ -11,16 +12,33 @@ public class GameObjectPair
 
 public class spawner : MonoBehaviour
 {
-    public List<GameObjectPair> objs = new List<GameObjectPair>();
+    public List<GameObjectPair> objsToRespawn = new List<GameObjectPair>();
+    public List<GameObjectPair> objsToTeleport = new List<GameObjectPair>();
+
+    public Text blueScore;
+    public Text redScore;
 
     public Transform parent;
 
     public void respawn(Transform parent)
     {
-        for (int i = 0; i < objs.Count; i++)
+        GameObject[] green;
+        GameObject[] purple;
+        green = GameObject.FindGameObjectsWithTag("greenOne");
+        purple = GameObject.FindGameObjectsWithTag("purpleOne");
+
+        foreach (GameObject obj in green) Destroy(obj);
+        foreach (GameObject obj in purple) Destroy(obj);
+        for (int i = 0; i < objsToRespawn.Count; i++)
         {
-            GameObject obj = Instantiate(objs[i].prefab, objs[i].spawnPoint.transform.position, Quaternion.identity, parent);
+            GameObject obj = Instantiate(objsToRespawn[i].prefab, objsToRespawn[i].spawnPoint.transform.position, Quaternion.identity, parent);
         }
+        for (int i = 0; i < objsToTeleport.Count; i++)
+        {
+            objsToTeleport[i].prefab.transform.position = objsToTeleport[i].spawnPoint.transform.position;
+        }
+        blueScore.text = "0";
+        redScore.text = "0";
     }
     public void Start()
     {
@@ -30,13 +48,6 @@ public class spawner : MonoBehaviour
     {
         if(Input.GetKeyDown(KeyCode.R))
         {
-            GameObject[] green;
-            GameObject[] purple;
-            green = GameObject.FindGameObjectsWithTag("greenOne");
-            purple = GameObject.FindGameObjectsWithTag("purpleOne");
-
-            foreach (GameObject obj in green) Destroy(obj);
-            foreach (GameObject obj in purple) Destroy(obj);
             respawn(parent);
         }
     }

@@ -11,7 +11,7 @@ public class shooter : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && intakeScript != null && intakeScript.c.Count != 0)
+        if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.JoystickButton2) && intakeScript != null && intakeScript.c.Count != 0)
         {
             Vector3 direction = Quaternion.AngleAxis(shootingAngle, transform.right) * transform.forward;
 

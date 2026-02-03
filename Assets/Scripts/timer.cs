@@ -5,6 +5,8 @@ public class timer : MonoBehaviour
 {
     public Text timerText;
 
+    public spawner spawnerScript;
+
     public float time;
     private float tempTime;
 
@@ -22,6 +24,7 @@ public class timer : MonoBehaviour
         if(tempTime<=0)
         {
             tempTime = time;
+            spawnerScript.respawn(spawnerScript.parent);
         }
     }
 }
