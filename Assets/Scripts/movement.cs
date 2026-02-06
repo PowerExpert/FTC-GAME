@@ -5,9 +5,10 @@ public class movement : MonoBehaviour
     private Vector3 Velocity;
     private Vector3 PlayerMovementInput;
 
-    public string joystickRightAxisXName;
+    public string JRX;
 
-    public string joystickLeftAxisYName;
+    public string JLX;
+    public string JLY;
 
     [Header("Components Needed")]
     [SerializeField] private CharacterController Controller;
@@ -27,13 +28,20 @@ public class movement : MonoBehaviour
 
     void Update()
     {
+        Debug.Log(
+            Input.GetAxis(JLX) + " | " +
+            Input.GetAxis(JLY) + " | " +
+            Input.GetAxis(JRX)
+        );
+
         float keyboardX = Input.GetAxisRaw("Horizontal");
         float keyboardZ = Input.GetAxisRaw("Vertical");
 
-        float joystickZ = Input.GetAxisRaw(joystickLeftAxisYName);
+        float joystickX = Input.GetAxis(JLX);
+        float joystickZ = Input.GetAxis(JLY);
 
         Vector3 input = new Vector3(
-            0f,
+            keyboardX + joystickX,
             0f,
             keyboardZ + joystickZ
         );
@@ -43,7 +51,6 @@ public class movement : MonoBehaviour
         RotatePlayer();
         MovePlayer();
     }
-
     private void MovePlayer()
     {
         Vector3 move = transform.TransformDirection(PlayerMovementInput);
@@ -59,7 +66,7 @@ public class movement : MonoBehaviour
 
     private void RotatePlayer()
     {
-        float rotation = Input.GetAxis(joystickRightAxisXName);
+        float rotation = Input.GetAxis(JRX);
 
         if (Input.GetKey(KeyCode.O))
         {

@@ -13,6 +13,10 @@ public class score : MonoBehaviour
     private int ballCount = 0;
     private void OnTriggerEnter(Collider other)
     {
+        if(index == 8)
+        {
+            index = 0;
+        }
         if (other.CompareTag("purpleOne") || other.CompareTag("greenOne"))
         {
             if (sequenceScript.colorSequance[index] == 'P' && other.CompareTag("purpleOne")) scoreAdd = 5;

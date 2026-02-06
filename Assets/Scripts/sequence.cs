@@ -18,7 +18,7 @@ public class sequence : MonoBehaviour
 
     public void create_sequence()
     {
-        for (int i = 0; i <= 9; i+=3)
+        for (int i = 0; i < 9; i+=3)
         {
             int rand = Random.Range(1, 4);
             if (rand == 1)

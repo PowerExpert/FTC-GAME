@@ -401,9 +401,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4696a1dd27f65e244aecd75cb6c9c43b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  fire_rate: 0.3
+  isVR: 0
+  VR_JBB: 
   shootingPower: 20
   shootingAngle: -45
-  fireRate: 0.3
   intakeScript: {fileID: 15426958}
   shootingArea: {fileID: 1237698219}
 --- !u!143 &34208493
@@ -470,12 +472,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 203e06cff9513f04fa072e10dd6de882, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::movement
-  joystickRightAxisXName: J2RightStickX
-  joystickLeftAxisYName: J2LeftStickY
+  isVR: 0
+  JRX: 
+  JLX: 
+  JLY: 
   Controller: {fileID: 34208493}
   Speed: 10
   Gravity: 9.81
   RotationSpeed: 150
+  VRCamera: {fileID: 0}
+  VR_JLX: 
+  VR_JLY: 
+  VR_JRX: 
 --- !u!65 &34208496
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1926,13 +1934,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 271562388}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: 0.9848078, z: -0.17364816, w: 0}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 416635715}
-  m_LocalEulerAnglesHint: {x: 20, y: 180, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &271562392
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3375,9 +3383,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4696a1dd27f65e244aecd75cb6c9c43b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  fire_rate: 0.3
+  isVR: 0
+  VR_JBB: 
   shootingPower: 20
   shootingAngle: -45
-  fireRate: 0.3
   intakeScript: {fileID: 531019591}
   shootingArea: {fileID: 1521562483}
 --- !u!143 &576442664
@@ -3444,12 +3454,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 203e06cff9513f04fa072e10dd6de882, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::movement
-  joystickRightAxisXName: J2RightStickX
-  joystickLeftAxisYName: J2LeftStickY
+  isVR: 0
+  JRX: 
+  JLX: 
+  JLY: 
   Controller: {fileID: 576442664}
   Speed: 10
   Gravity: 9.81
   RotationSpeed: 150
+  VRCamera: {fileID: 0}
+  VR_JLX: 
+  VR_JLY: 
+  VR_JRX: 
 --- !u!65 &576442667
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3976,107 +3992,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 610248336}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &712446151
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 712446152}
-  - component: {fileID: 712446155}
-  - component: {fileID: 712446154}
-  - component: {fileID: 712446153}
-  m_Layer: 5
-  m_Name: Canvas
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!224 &712446152
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 712446151}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0, y: 0, z: 0}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
-  m_Pivot: {x: 0, y: 0}
---- !u!114 &712446153
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 712446151}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.GraphicRaycaster
-  m_IgnoreReversedGraphics: 1
-  m_BlockingObjects: 0
-  m_BlockingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
---- !u!114 &712446154
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 712446151}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.CanvasScaler
-  m_UiScaleMode: 1
-  m_ReferencePixelsPerUnit: 100
-  m_ScaleFactor: 1
-  m_ReferenceResolution: {x: 1920, y: 1080}
-  m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0
-  m_PhysicalUnit: 3
-  m_FallbackScreenDPI: 96
-  m_DefaultSpriteDPI: 96
-  m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 0
---- !u!223 &712446155
-Canvas:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 712446151}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_RenderMode: 1
-  m_Camera: {fileID: 271562390}
-  m_PlaneDistance: 100
-  m_PixelPerfect: 0
-  m_ReceivesEvents: 1
-  m_OverrideSorting: 0
-  m_OverridePixelPerfect: 0
-  m_SortingBucketNormalizedSize: 0
-  m_VertexColorAlwaysGammaSpace: 0
-  m_AdditionalShaderChannelsFlag: 25
-  m_UpdateRectTransformForStandalone: 0
-  m_SortingLayerID: 0
-  m_SortingOrder: 0
-  m_TargetDisplay: 0
 --- !u!1 &716460885
 GameObject:
   m_ObjectHideFlags: 0
@@ -4501,14 +4416,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 800483925}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 11, z: 29}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
+  m_LocalPosition: {x: 0, y: 14, z: 27.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 416635715}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!1 &802899123
 GameObject:
   m_ObjectHideFlags: 0
@@ -4952,7 +4867,7 @@ MonoBehaviour:
   - prefab: {fileID: 34208491}
     spawnPoint: {fileID: 1558243237}
   blueScore: {fileID: 843737796}
-  redScore: {fileID: 2055837018}
+  redScore: {fileID: 1362838937}
   parent: {fileID: 1897328154}
 --- !u!4 &813996163
 Transform:
@@ -5577,7 +5492,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 919434881}
-  m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 0}
 --- !u!4 &919434886
 Transform:
   m_ObjectHideFlags: 0
@@ -5985,17 +5900,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 989039178}
-  m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: 12}
-  m_LocalScale: {x: 0.25754, y: 0.25754, z: 0.25754}
+  m_LocalRotation: {x: 0, y: 0.92387956, z: 0, w: 0.38268343}
+  m_LocalPosition: {x: 0, y: 0, z: -12}
+  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 843737795}
   m_Father: {fileID: 1602469632}
-  m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 135, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 16, y: 10}
+  m_AnchoredPosition: {x: 27, y: 11}
   m_SizeDelta: {x: 30, y: 15}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &989039180
@@ -6339,9 +6254,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4696a1dd27f65e244aecd75cb6c9c43b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  fire_rate: 0.3
+  isVR: 0
+  VR_JBB: 
   shootingPower: 20
   shootingAngle: -45
-  fireRate: 0.3
   intakeScript: {fileID: 1795266379}
   shootingArea: {fileID: 1523214656}
 --- !u!143 &1050025591
@@ -6408,12 +6325,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 203e06cff9513f04fa072e10dd6de882, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::movement
-  joystickRightAxisXName: J2RightStickX
-  joystickLeftAxisYName: J2LeftStickY
+  isVR: 0
+  JRX: 
+  JLX: 
+  JLY: 
   Controller: {fileID: 1050025591}
   Speed: 10
   Gravity: 9.81
   RotationSpeed: 150
+  VRCamera: {fileID: 0}
+  VR_JLX: 
+  VR_JLY: 
+  VR_JRX: 
 --- !u!65 &1050025594
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -9725,82 +9648,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1535733641}
   m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
---- !u!1 &1536717991
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1536717992}
-  - component: {fileID: 1536717994}
-  - component: {fileID: 1536717993}
-  m_Layer: 5
-  m_Name: Field (TMP) (1)
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!224 &1536717992
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1536717991}
-  m_LocalRotation: {x: -0, y: 0.9848078, z: -0.17364816, w: 0}
-  m_LocalPosition: {x: 0, y: 0, z: -77.660805}
-  m_LocalScale: {x: 0.2508044, y: 0.2508044, z: 0.25080442}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 2055837020}
-  m_Father: {fileID: 1602469632}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 3842.3833, y: -668.3738}
-  m_SizeDelta: {x: 160, y: 30}
-  m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1536717993
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1536717991}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 0, b: 0, a: 1}
-  m_RaycastTarget: 1
-  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
-  m_OnCullStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  m_Sprite: {fileID: 10911, guid: 0000000000000000f000000000000000, type: 0}
-  m_Type: 1
-  m_PreserveAspect: 0
-  m_FillCenter: 1
-  m_FillMethod: 4
-  m_FillAmount: 1
-  m_FillClockwise: 1
-  m_FillOrigin: 0
-  m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
---- !u!222 &1536717994
-CanvasRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1536717991}
-  m_CullTransparentMesh: 1
 --- !u!1 &1539312109
 GameObject:
   m_ObjectHideFlags: 0
@@ -10576,7 +10423,6 @@ RectTransform:
   m_Children:
   - {fileID: 989039179}
   - {fileID: 1788667270}
-  - {fileID: 1536717992}
   - {fileID: 1171969284}
   - {fileID: 900749733}
   m_Father: {fileID: 0}
@@ -10918,7 +10764,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ac8505c85b6173c45848e740c6f05094, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::score
-  scoreText: {fileID: 2055837018}
+  scoreText: {fileID: 1362838937}
   sequenceScript: {fileID: 1077063993}
 --- !u!65 &1645241170
 BoxCollider:
@@ -11324,17 +11170,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1788667269}
-  m_LocalRotation: {x: 0, y: -0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: 11.14}
-  m_LocalScale: {x: 0.25754, y: 0.25754, z: 0.25754}
+  m_LocalRotation: {x: 0, y: -0.92387956, z: 0, w: 0.38268343}
+  m_LocalPosition: {x: 0, y: 0, z: -12}
+  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1362838936}
   m_Father: {fileID: 1602469632}
-  m_LocalEulerAnglesHint: {x: 0, y: -90, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -135, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -16, y: 9.66}
+  m_AnchoredPosition: {x: -27, y: 11}
   m_SizeDelta: {x: 30, y: 15}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1788667271
@@ -12519,85 +12365,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 552308865}
   m_LocalEulerAnglesHint: {x: 15, y: 0, z: 0}
---- !u!1 &2055837017
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2055837020}
-  - component: {fileID: 2055837019}
-  - component: {fileID: 2055837018}
-  m_Layer: 5
-  m_Name: Text (Legacy)
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &2055837018
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2055837017}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
-  m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 1}
-  m_RaycastTarget: 1
-  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
-  m_OnCullStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 50
-    m_FontStyle: 0
-    m_BestFit: 0
-    m_MinSize: 5
-    m_MaxSize: 50
-    m_Alignment: 1
-    m_AlignByGeometry: 0
-    m_RichText: 1
-    m_HorizontalOverflow: 0
-    m_VerticalOverflow: 0
-    m_LineSpacing: 1
-  m_Text: 0
---- !u!222 &2055837019
-CanvasRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2055837017}
-  m_CullTransparentMesh: 1
---- !u!224 &2055837020
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2055837017}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1536717992}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -0.35383}
-  m_SizeDelta: {x: 328.03, y: 58.585}
-  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &2062474803
 GameObject:
   m_ObjectHideFlags: 0
@@ -12894,12 +12661,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 203e06cff9513f04fa072e10dd6de882, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::movement
-  joystickRightAxisXName: J1RightStickX
-  joystickLeftAxisYName: J1LeftStickY
+  isVR: 1
+  JRX: J1RX
+  JLX: J1LX
+  JLY: J1LY
   Controller: {fileID: 2135707337}
   Speed: 10
   Gravity: 9.81
   RotationSpeed: 150
+  VRCamera: {fileID: 800483928}
+  VR_JLX: VR_JLX
+  VR_JLY: VR_JLY
+  VR_JRX: VR_JRX
 --- !u!65 &2135707340
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -12933,9 +12706,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4696a1dd27f65e244aecd75cb6c9c43b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  fire_rate: 0.3
+  isVR: 1
+  VR_JBB: VR_JBB
   shootingPower: 20
   shootingAngle: -45
-  fireRate: 0.3
   intakeScript: {fileID: 1442223479}
   shootingArea: {fileID: 1722969018}
 --- !u!1 &2141840267
@@ -15150,7 +14925,6 @@ SceneRoots:
   - {fileID: 2069140869}
   - {fileID: 862437113}
   - {fileID: 1279888555}
-  - {fileID: 712446152}
   - {fileID: 1077063992}
   - {fileID: 217086668}
   - {fileID: 1130484533}
