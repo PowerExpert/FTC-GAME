@@ -9,6 +9,8 @@ TagManager:
   - Robot
   - purpleOne
   - greenOne
+  - BlueRobot
+  - RedRobot
   layers:
   - Default
   - TransparentFX

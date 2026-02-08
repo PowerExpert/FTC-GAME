@@ -3,15 +3,19 @@ using UnityEngine.UI;
 
 public class timer : MonoBehaviour
 {
-    public GameObject objR0;
-    public GameObject objR1;
-    public GameObject objR2;
-    public GameObject objR3;
+    public RedBase objR0;
+    public RedBase objR1;
+    public RedBase objR2;
+    public RedBase objR3;
 
-    public GameObject objB0;
-    public GameObject objB1;
-    public GameObject objB2;
-    public GameObject objB3;
+    public BlueBase objB0;
+    public BlueBase objB1;
+    public BlueBase objB2;
+    public BlueBase objB3;
+
+    public BaseManager BaseManagerScript;
+
+    private bool checker = false;
 
     public GameObject redWin;
     public GameObject blueWin;
@@ -24,9 +28,10 @@ public class timer : MonoBehaviour
     public Text timerText;
 
     public spawner spawnerScript;
+    public sequence sequenceScript;
 
     public float time;
-    private float tempTime;
+    public float tempTime;
 
     private void Start()
     {
@@ -41,11 +46,31 @@ public class timer : MonoBehaviour
         tempTime -= Time.deltaTime;
         if(tempTime<=0)
         {
-            if(redScore.text >= blueScore.text) tie.SetActive(true);
-            else if (redScore.text > blueScore.text) redWin.SetActive(true);
-            else blueWin.SetActive(true);
-            button.SetActive(true);
-            
+            if (!checker)
+            {
+                BaseManager.Count(objR0, objR1, objR2, objR3, objB0, objB1, objB2, objB3, redScore, blueScore);
+                if (int.Parse(redScore.text) == int.Parse(blueScore.text)) tie.SetActive(true);
+                else if (int.Parse(redScore.text) >= int.Parse(blueScore.text)) redWin.SetActive(true);
+                else if (int.Parse(redScore.text) <= int.Parse(blueScore.text)) blueWin.SetActive(true);
+                button.SetActive(true);
+                checker = true;
+            }
+            tempTime = 0;
         }
+        if(Input.GetKeyDown(KeyCode.R))
+        {
+            OnRestart();
+        }
+    }
+    public void OnRestart()
+    {
+        tempTime = time;
+        spawnerScript.respawn(spawnerScript.parent);
+        sequenceScript.create_sequence();
+        button.SetActive(false);
+        redWin.SetActive(false);
+        blueWin.SetActive(false);
+        tie.SetActive(false);
+        checker = false;
     }
 }
