@@ -29,7 +29,16 @@ public class BaseManager : MonoBehaviour
             objB0.isActivated = objB1.isActivated = objB2.isActivated = objB3.isActivated = false;
         }
 
-        redScore.text = redScoreValue.ToString();
-        blueScore.text = blueScoreValue.ToString();
+        int currentRed = 0;
+        if (!int.TryParse(redScore.text, out currentRed))
+            currentRed = 0;
+        currentRed += redScoreValue;
+        redScore.text = currentRed.ToString();
+
+        int currentBlue = 0;
+        if (!int.TryParse(blueScore.text, out currentBlue))
+            currentBlue = 0;
+        currentBlue += blueScoreValue;
+        blueScore.text = currentBlue.ToString();
     }
 }

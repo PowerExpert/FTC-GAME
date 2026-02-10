@@ -11,7 +11,7 @@ public class moveTEST : MonoBehaviour
     [SerializeField] private float gravity = 9.81f;
 
     [Header("Rotation")]
-    [SerializeField] private float rotationSpeed = 120f;
+    [SerializeField] private float rotationSpeed;
 
     private Vector3 velocity;
     private Vector2 moveInput;

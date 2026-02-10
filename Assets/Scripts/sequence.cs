@@ -21,6 +21,7 @@ public class sequence : MonoBehaviour
     {
         colorSequance.Clear();
         foreach (GameObject obj in createdSequence) Destroy(obj);
+        createdSequence.Clear();
         for (int i = 0; i < 9; i+=3)
         {
             int rand = Random.Range(1, 4);
