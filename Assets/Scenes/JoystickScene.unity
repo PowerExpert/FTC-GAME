@@ -645,7 +645,7 @@ MonoBehaviour:
   controller: {fileID: 34208493}
   speed: 18
   gravity: 9.81
-  rotationSpeed: 200
+  rotationSpeed: 220
 --- !u!114 &34208499
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3275,7 +3275,7 @@ MonoBehaviour:
   controller: {fileID: 377492911}
   speed: 18
   gravity: 9.81
-  rotationSpeed: 200
+  rotationSpeed: 220
 --- !u!114 &377492909
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7620,7 +7620,7 @@ MonoBehaviour:
   controller: {fileID: 1050025591}
   speed: 18
   gravity: 9.81
-  rotationSpeed: 200
+  rotationSpeed: 220
 --- !u!114 &1050025597
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7684,6 +7684,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c98112bf3ec1df44afdfef93e120317, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::timer
+  tick: 0
   objR0: {fileID: 1986593321}
   objR1: {fileID: 1955131721}
   objR2: {fileID: 110939407}
@@ -7758,6 +7759,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8bcffca25b28af4fabfa2779cc94cd3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerManager
+  timerScript: {fileID: 1077063991}
   players:
   - {fileID: 2135707335}
   - {fileID: 1050025589}
@@ -14763,7 +14765,7 @@ MonoBehaviour:
   controller: {fileID: 2135707337}
   speed: 18
   gravity: 9.81
-  rotationSpeed: 200
+  rotationSpeed: 220
 --- !u!114 &2135707343
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -3,6 +3,8 @@ using UnityEngine.UI;
 
 public class timer : MonoBehaviour
 {
+    public bool tick = false;
+
     public RedBase objR0;
     public RedBase objR1;
     public RedBase objR2;
@@ -43,7 +45,7 @@ public class timer : MonoBehaviour
         int seconds = Mathf.FloorToInt(tempTime - minutes * 60);
         timerText.text = string.Format("{0:0}:{1:00}", minutes, seconds);
 
-        tempTime -= Time.deltaTime;
+        if(tick) tempTime -= Time.deltaTime;
         if(tempTime<=0)
         {
             if (!checker)
