@@ -3,14 +3,33 @@ using UnityEngine.InputSystem;
 
 public class Shooter : MonoBehaviour
 {
+    public TriggerRead triggerScript;
+    public TriggerRead triggerScript1;
+
     public float shootingPower;
     public float shootingAngle;
+
+    public modeSwitcher scriptFuck;
 
     public intake intakeScript;
     public GameObject shootingArea;
 
     private GameObject projectilePrefab;
     private PlayerInput playerInput;
+
+    void Update()
+    {
+        if (scriptFuck.isNearMode)
+        {
+            shootingPower = 17f;
+            shootingAngle = -50f;
+        }
+        else
+        {
+            shootingPower = 30f;
+            shootingAngle = -25f;
+        }
+    }
 
     private void Awake()
     {
@@ -21,7 +40,7 @@ public class Shooter : MonoBehaviour
     {
         if (playerInput != null)
         {
-            var shootAction = playerInput.actions["Fire"]; // Make sure this action exists
+            var shootAction = playerInput.actions["Fire"];
             shootAction.performed += OnShoot;
         }
     }
@@ -37,7 +56,7 @@ public class Shooter : MonoBehaviour
 
     private void OnShoot(InputAction.CallbackContext context)
     {
-        if (intakeScript != null && intakeScript.c.Count > 0)
+        if (intakeScript != null && intakeScript.c.Count > 0 && !triggerScript.isTouching && !triggerScript1.isTouching)
         {
             ShootProjectile();
         }

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public class intake : MonoBehaviour
@@ -8,7 +8,7 @@ public class intake : MonoBehaviour
     public GameObject purple;
     public GameObject green;
 
-    void OnTriggerEnter(Collider other)
+    public void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("purpleOne") && c.Count < 3)
         {
