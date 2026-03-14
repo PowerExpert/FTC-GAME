@@ -27,27 +27,27 @@ public class sequence : MonoBehaviour
             int rand = Random.Range(1, 4);
             if (rand == 1)
             {
-                createdSequence.Add(Instantiate(P, objectsInSequence[i].transform.position, Quaternion.identity, parent));
-                createdSequence.Add(Instantiate(P, objectsInSequence[i+1].transform.position, Quaternion.identity, parent));
-                createdSequence.Add(Instantiate(G, objectsInSequence[i+2].transform.position, Quaternion.identity, parent));
+                createdSequence.Add(Instantiate(P, objectsInSequence[i].transform.position, Quaternion.Euler(-42, 0, 0), parent));
+                createdSequence.Add(Instantiate(P, objectsInSequence[i+1].transform.position, Quaternion.Euler(-42, 0, 0), parent));
+                createdSequence.Add(Instantiate(G, objectsInSequence[i+2].transform.position, Quaternion.Euler(-42, 0, 0), parent));
                 colorSequance.Add('P');
                 colorSequance.Add('P');
                 colorSequance.Add('G');
             }
             else if (rand == 2)
             {
-                createdSequence.Add(Instantiate(P, objectsInSequence[i].transform.position, Quaternion.identity, parent));
-                createdSequence.Add(Instantiate(G, objectsInSequence[i + 1].transform.position, Quaternion.identity, parent));
-                createdSequence.Add(Instantiate(P, objectsInSequence[i + 2].transform.position, Quaternion.identity, parent));
+                createdSequence.Add(Instantiate(P, objectsInSequence[i].transform.position, Quaternion.Euler(-42, 0, 0), parent));
+                createdSequence.Add(Instantiate(G, objectsInSequence[i + 1].transform.position, Quaternion.Euler(-42, 0, 0), parent));
+                createdSequence.Add(Instantiate(P, objectsInSequence[i + 2].transform.position, Quaternion.Euler(-42, 0, 0), parent));
                 colorSequance.Add('P');
                 colorSequance.Add('G');
                 colorSequance.Add('P');
             }
             else if (rand == 3)
             {
-                createdSequence.Add(Instantiate(G, objectsInSequence[i].transform.position, Quaternion.identity, parent));
-                createdSequence.Add(Instantiate(P, objectsInSequence[i + 1].transform.position, Quaternion.identity, parent));
-                createdSequence.Add(Instantiate(P, objectsInSequence[i + 2].transform.position, Quaternion.identity, parent)); 
+                createdSequence.Add(Instantiate(G, objectsInSequence[i].transform.position, Quaternion.Euler(-42, 0, 0), parent));
+                createdSequence.Add(Instantiate(P, objectsInSequence[i + 1].transform.position, Quaternion.Euler(-42, 0, 0), parent));
+                createdSequence.Add(Instantiate(P, objectsInSequence[i + 2].transform.position, Quaternion.Euler(-42, 0, 0), parent)); 
                 colorSequance.Add('G');
                 colorSequance.Add('P');
                 colorSequance.Add('P');
