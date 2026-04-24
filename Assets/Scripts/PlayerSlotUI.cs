@@ -84,6 +84,18 @@ public class PlayerSlotUI : MonoBehaviour
         return characters[selectedCharacterIndex];
     }
 
+    public void SetWaitingPanel(GameObject wp) { waitingPanel = wp; }
+    public void SetSelectionPanel(GameObject sp) { selectionPanel = sp; }
+    public void SetPlayerLabel(Text t) { playerLabel = t; }
+    public void SetCharacterNameText(Text t) { characterNameText = t; }
+    public void SetCharacterPreviewImage(Image i) { characterPreviewImage = i; }
+    public void SetReadyText(Text t) { readyText = t; }
+    public void SetLeftArrow(Button b) { leftArrowButton = b; if (b != null) b.onClick.AddListener(OnPreviousCharacter); }
+    public void SetRightArrow(Button b) { rightArrowButton = b; if (b != null) b.onClick.AddListener(OnNextCharacter); }
+    public void SetReadyButton(Button b) { readyButton = b; if (b != null) b.onClick.AddListener(OnReadyToggle); }
+    public void SetBackgroundImage(Image i) { panelBackground = i; }
+    public void SetHeaderBar(Image i) { headerBar = i; }
+
     // ---------------------------------------------------------------
     // Unity lifecycle
     // ---------------------------------------------------------------
@@ -144,15 +156,22 @@ public class PlayerSlotUI : MonoBehaviour
 
     private void ShowWaitingPanel()
     {
-        if (waitingPanel != null) waitingPanel.SetActive(true);
-        if (selectionPanel != null) selectionPanel.SetActive(false);
+        if (playerLabel != null)
+        {
+            playerLabel.text = "WAITING...";
+            playerLabel.color = teamColors[Mathf.Clamp(playerIndex, 0, teamColors.Length - 1)];
+        }
+        if (characterNameText != null)
+            characterNameText.text = "Press button to join";
     }
 
     private void ShowSelectionPanel()
     {
-        if (waitingPanel != null) waitingPanel.SetActive(false);
-        if (selectionPanel != null) selectionPanel.SetActive(true);
-        if (readyText != null) readyText.gameObject.SetActive(false);
+        if (playerLabel != null)
+        {
+            playerLabel.text = "PLAYER " + (playerIndex + 1);
+            playerLabel.color = teamColors[Mathf.Clamp(playerIndex, 0, teamColors.Length - 1)];
+        }
     }
 
     private void RefreshCharacterDisplay()

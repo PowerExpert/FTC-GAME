@@ -10521,8 +10521,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: aa822972629b0eb4a8242e7735ff1277, type: 2}
   inputManager: {fileID: 1077063995}
   timerScript: {fileID: 1077063991}
-  canvas: {fileID: 0}
-  manager: {fileID: 0}
+  canvas: {fileID: 1033853915}
+  manager: {fileID: 1077063999}
   slots: []
 --- !u!114 &1077063998
 MonoBehaviour:
@@ -10559,8 +10559,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5ed1a2d50b017a842a6e5c35bb74989d, type: 2}
   - {fileID: 11400000, guid: aa822972629b0eb4a8242e7735ff1277, type: 2}
   instructionText: {fileID: 1199583311}
-  startButton: {fileID: 0}
-  joinCanvas: {fileID: 0}
+  startButton: {fileID: 633985927}
+  joinCanvas: {fileID: 1033853912}
   countdownText: {fileID: 1171969282}
   timerScript: {fileID: 1077063991}
 --- !u!1 &1077439156

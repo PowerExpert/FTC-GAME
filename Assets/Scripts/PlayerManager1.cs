@@ -18,7 +18,7 @@ public struct TextComponents
 /// you can attach BOTH scripts to the same GameObject, or keep this one
 /// for the legacy text-only flow and use CharacterSelectionManager for the new UI.
 /// </summary>
-public class PlayerManager : MonoBehaviour
+public class PlayerManager1 : MonoBehaviour
 {
     [Header("Canvas / Panels")]
     public GameObject canvasJoin;
