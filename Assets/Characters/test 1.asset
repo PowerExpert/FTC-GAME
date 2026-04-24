@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bc52b0fc3131a1d4c9ab9240b5b53995, type: 3}
   m_Name: test 1
   m_EditorClassIdentifier: Assembly-CSharp::CharacterData
-  characterName: Robot
-  previewSprite: {fileID: 21300000, guid: db3e7b7c8db355e499429545071a0321, type: 3}
-  playerPrefab: {fileID: 1752682969932936229, guid: b9e9ec0b77b1fed459b264156751e99e, type: 3}
+  characterName: Robot1
+  previewSprite: {fileID: 21300000, guid: 490272c7e5fa30f4a88f5f77ac90ca97, type: 3}
+  playerPrefab: {fileID: 3770114947664062171, guid: 6608503052ecef74b9b3f8d34869ad19, type: 3}
   description: kldsjf;lksjfkdsajf;lksaf

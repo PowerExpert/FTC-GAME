@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CharacterData
   characterName: Robot
   previewSprite: {fileID: 21300000, guid: db3e7b7c8db355e499429545071a0321, type: 3}
-  playerPrefab: {fileID: 1752682969932936229, guid: b9e9ec0b77b1fed459b264156751e99e, type: 3}
+  playerPrefab: {fileID: 3770114947664062171, guid: ce236781b819a9e4491df9a942aecfa2, type: 3}
   description: kldsjf;lksjfkdsajf;lksaf
