@@ -174,10 +174,10 @@ public class MultiplayerJoinManager : MonoBehaviour
             charRT.offsetMax = new Vector2(-20, 20);
             charRT.sizeDelta = new Vector2(0, 40);
 
-            GameObject leftBtn = CreateArrowButton(slotObj, "LeftArrow", new Vector2(-120, 0), "<");
+            GameObject leftBtn = CreateArrowButton(slotObj.transform, "LeftArrow", new Vector2(-120, 0), "<");
             slot.SetLeftArrow(leftBtn.GetComponent<Button>());
 
-            GameObject rightBtn = CreateArrowButton(slotObj, "RightArrow", new Vector2(120, 0), ">");
+            GameObject rightBtn = CreateArrowButton(slotObj.transform, "RightArrow", new Vector2(120, 0), ">");
             slot.SetRightArrow(rightBtn.GetComponent<Button>());
 
             GameObject readyObj = new GameObject("ReadyButton");
@@ -341,7 +341,7 @@ public class MultiplayerJoinManager : MonoBehaviour
         joinedCount++;
         UpdateInstruction();
 
-        Debug.Log("Player " + joinedCount + " joined (slot " + joinedCount + ")");
+        Debug.Log("Player " + joinedCount + " joined (slot " + (joinedCount - 1) + ")");
     }
 
     private void OnPlayerLeft(PlayerInput playerInput)
@@ -385,11 +385,11 @@ public class MultiplayerJoinManager : MonoBehaviour
         if (timerScript != null)
             timerScript.tick = true;
 
-        Debug.Log("Game started! Players:");
+        Debug.Log("Game started! Players: " + joinedCount);
         for (int i = 0; i < joinedCount; i++)
         {
             CharacterData cd = slots[i].GetSelectedCharacter();
-            Debug.Log("  Player " + (i + 1) + ": " + (cd != null ? cd.characterName : "default"));
+            Debug.Log("  Slot " + i + ": " + (cd != null ? cd.characterName : "No character selected"));
         }
     }
 
@@ -442,6 +442,8 @@ public class PlayerSlotUI : MonoBehaviour
         isOccupied = true;
         isReady = false;
         selectedCharacterIndex = 0;
+        lastFrameWasLeft = false;
+        lastFrameWasRight = false;
 
         Color col = teamColors[Mathf.Clamp(playerIndex, 0, teamColors.Length - 1)];
         if (headerBar != null) headerBar.color = col;
@@ -489,9 +491,6 @@ public class PlayerSlotUI : MonoBehaviour
     private void Update()
     {
         if (!isOccupied || assignedInput == null || isReady) return;
-
-        SlotInputHandler handler = assignedInput.GetComponent<SlotInputHandler>();
-        if (handler != null) return;
 
         var moveAction = assignedInput.actions["Move"];
         if (moveAction == null) return;

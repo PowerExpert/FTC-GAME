@@ -9999,6 +9999,7 @@ GameObject:
   - component: {fileID: 1077063994}
   - component: {fileID: 1077063995}
   - component: {fileID: 1077063996}
+  - component: {fileID: 1077063997}
   m_Layer: 0
   m_Name: slave
   m_TagString: Untagged
@@ -10112,7 +10113,6 @@ MonoBehaviour:
   - {fileID: 295773690}
   - {fileID: 514023581}
   manager: {fileID: 1077063995}
-  charSelectionManager: {fileID: 0}
 --- !u!114 &1077063995
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10169,6 +10169,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 98b52b59ae9f3c74a813a0a8f19ee5d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BaseManager
+--- !u!114 &1077063997
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1077063990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cbcd4fd093a9b24299384bba56a0cdd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MultiplayerJoinManager
+  characters:
+  - {fileID: 11400000, guid: 5ed1a2d50b017a842a6e5c35bb74989d, type: 2}
+  - {fileID: 11400000, guid: aa822972629b0eb4a8242e7735ff1277, type: 2}
+  inputManager: {fileID: 1077063995}
+  timerScript: {fileID: 1077063991}
+  playerPrefab: {fileID: 8343685918055691637}
+  maxPlayers: 4
+  countdownTime: 3
 --- !u!1 &1077439156
 GameObject:
   m_ObjectHideFlags: 0

@@ -37,10 +37,6 @@ public class PlayerManager1 : MonoBehaviour
     [Header("Input Manager")]
     public PlayerInputManager manager;
 
-    [Header("Optional: Link to character selection system")]
-    [Tooltip("If assigned, PlayerManager defers prefab logic to CharacterSelectionManager.")]
-    public CharacterSelectionManager charSelectionManager;
-
     private int playerCount = 0;
 
     // ---------------------------------------------------------------
@@ -50,8 +46,7 @@ public class PlayerManager1 : MonoBehaviour
         if (timerText != null) timerText.SetActive(false);
         if (tutorText != null) tutorText.SetActive(true);
 
-        // Set first prefab only if we are NOT using the character selection manager
-        if (charSelectionManager == null && manager != null && playerPrefabs.Count > 0)
+        if (manager != null && playerPrefabs.Count > 0)
         {
             manager.playerPrefab = playerPrefabs[0];
         }
@@ -92,8 +87,7 @@ public class PlayerManager1 : MonoBehaviour
 
         playerCount++;
 
-        // Advance prefab only when NOT using CharacterSelectionManager
-        if (charSelectionManager == null && manager != null && playerCount < playerPrefabs.Count)
+        if (manager != null && playerCount < playerPrefabs.Count)
         {
             manager.playerPrefab = playerPrefabs[playerCount];
         }
@@ -112,8 +106,7 @@ public class PlayerManager1 : MonoBehaviour
         if (canvasJoin != null) canvasJoin.SetActive(false);
         if (manager != null) manager.DisableJoining();
 
-        // If timer should start here (not handled by CharacterSelectionManager)
-        if (charSelectionManager == null && timerScript != null)
+        if (timerScript != null)
             timerScript.tick = true;
     }
 }
