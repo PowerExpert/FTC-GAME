@@ -1,61 +1,57 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+// ??????????????????????????????????????????????????????????????????????????????
+//  moveTEST
+//  Lives on the player prefab alongside PlayerInput.
+//  Disabled during lobby. Enabled by MultiplayerJoinManager.BeginGame().
+//  Because this is on the same GameObject as PlayerInput, device isolation
+//  is handled automatically — ReadValue() only reads this player's device.
+// ??????????????????????????????????????????????????????????????????????????????
+[RequireComponent(typeof(PlayerInput))]
+[RequireComponent(typeof(CharacterController))]
 public class moveTEST : MonoBehaviour
 {
-    [Header("Components")]
-    [SerializeField] private CharacterController controller;
-
     [Header("Movement")]
     [SerializeField] private float speed = 6f;
     [SerializeField] private float gravity = 9.81f;
+    [SerializeField] private float rotationSpeed = 200f;
 
-    [Header("Rotation")]
-    [SerializeField] private float rotationSpeed;
+    private CharacterController _controller;
+    private PlayerInput _playerInput;
+    private Vector3 _velocity;
 
-    private Vector3 velocity;
-    private Vector2 moveInput;
-    private Vector2 lookInput;
-
-    private PlayerInput playerInput;
+    // ?????????????????????????????????????????????????????????????????????????
 
     private void Awake()
     {
-        playerInput = GetComponent<PlayerInput>();
-    }
+        _controller = GetComponent<CharacterController>();
+        _playerInput = GetComponent<PlayerInput>();
 
-    private void Start()
-    {
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        // Disabled during lobby. BeginGame() enables this component.
+        enabled = false;
     }
 
     private void Update()
     {
-        moveInput = playerInput.actions["Move"].ReadValue<Vector2>();
-        lookInput = playerInput.actions["Look"].ReadValue<Vector2>();
+        var moveAction = _playerInput.actions.FindAction("Move");
+        var lookAction = _playerInput.actions.FindAction("Look");
 
-        MovePlayer();
-        RotatePlayer();
-    }
+        Vector2 move = moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
+        Vector2 look = lookAction != null ? lookAction.ReadValue<Vector2>() : Vector2.zero;
 
-    private void MovePlayer()
-    {
-        Vector3 move = new Vector3(moveInput.x, 0f, moveInput.y);
-        move = transform.TransformDirection(move);
+        // Rotation
+        transform.Rotate(0f, look.x * rotationSpeed * Time.deltaTime, 0f);
 
-        if (controller.isGrounded && velocity.y < 0f)
-            velocity.y = -2f;
+        // Gravity
+        if (_controller.isGrounded && _velocity.y < 0f)
+            _velocity.y = -2f;
         else
-            velocity.y -= gravity * Time.deltaTime;
+            _velocity.y -= gravity * Time.deltaTime;
 
-        controller.Move(move * speed * Time.deltaTime);
-        controller.Move(velocity * Time.deltaTime);
-    }
-
-    private void RotatePlayer()
-    {
-        float rotationY = lookInput.x * rotationSpeed * Time.deltaTime;
-        transform.Rotate(0f, rotationY, 0f);
+        // Move
+        Vector3 dir = transform.TransformDirection(new Vector3(move.x, 0f, move.y));
+        _controller.Move(dir * speed * Time.deltaTime);
+        _controller.Move(_velocity * Time.deltaTime);
     }
 }

@@ -3,9 +3,6 @@ using UnityEngine.InputSystem;
 
 public class Shooter : MonoBehaviour
 {
-    public TriggerRead triggerScript;
-    public TriggerRead triggerScript1;
-
     public float shootingPower;
     public float shootingAngle;
 
@@ -56,7 +53,7 @@ public class Shooter : MonoBehaviour
 
     private void OnShoot(InputAction.CallbackContext context)
     {
-        if (intakeScript != null && intakeScript.c.Count > 0 && !triggerScript.isTouching && !triggerScript1.isTouching)
+        if (intakeScript != null && intakeScript.c.Count > 0)
         {
             ShootProjectile();
         }

@@ -1,48 +1,73 @@
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 using System.Collections.Generic;
 
+/// <summary>
+/// Multiplayer lobby: JOIN → CHARACTER SELECT → GAME START
+/// </summary>
 public class MultiplayerJoinManager : MonoBehaviour
 {
-    [Header("Setup (fill these in Inspector)")]
+    [Header("Required")]
     public List<CharacterData> characters;
     public PlayerInputManager inputManager;
     public timer timerScript;
 
-    [Header("Player Prefab")]
-    public GameObject playerPrefab;
+    [Header("Spawn Points")]
+    public List<Transform> spawnPoints;
 
     [Header("Settings")]
     public int maxPlayers = 4;
     public float countdownTime = 3f;
 
-    private Canvas canvas;
-    private List<PlayerSlotUI> slots = new List<PlayerSlotUI>();
-    private Text instructionText;
-    private Button startButton;
-    private Text countdownText;
+    private enum GameState { Joining, CharacterSelect, Countdown, Playing }
+    private GameState state = GameState.Joining;
 
-    private int joinedCount = 0;
-    private float countdownTimer = 0f;
-    private bool countingDown = false;
+    private readonly List<PlayerSlotUI> slots = new();
+    private readonly List<PlayerInput> players = new();
+    private readonly HashSet<InputDevice> joinedDevices = new();
+
+    private Text instructionText;
+    private Text countdownText;
+    private Button startButton;
     private GameObject joinCanvas;
 
-    public void Start()
+    private float countdownTimer;
+    private float joinDebounceTimer;
+
+    private InputAction _joinInputAction;
+
+    private static readonly Color[] TeamColors =
+    {
+        new(0.85f, 0.15f, 0.15f), new(0.15f, 0.45f, 0.85f),
+        new(0.15f, 0.75f, 0.25f), new(0.85f, 0.65f, 0.10f)
+    };
+
+    private static readonly Vector2[] SlotPositions =
+    {
+        new(-400, 200), new(400, 200), new(-400, -200), new(400, -200)
+    };
+
+    private void Start()
     {
         if (characters == null || characters.Count == 0)
         {
-            Debug.LogError("MultiplayerJoinManager: No characters assigned!");
+            Debug.LogError("[MJM] No characters assigned!");
             return;
         }
 
-        CreateJoinScreen();
-
-        if (inputManager != null)
+        if (inputManager == null)
         {
-            inputManager.onPlayerJoined += OnPlayerJoined;
-            inputManager.onPlayerLeft += OnPlayerLeft;
+            Debug.LogError("[MJM] PlayerInputManager not assigned!");
+            return;
         }
+
+        inputManager.onPlayerJoined += OnPlayerJoined;
+        inputManager.onPlayerLeft += OnPlayerLeft;
+
+        BuildUI();
+        SetupJoinInput();
+        UpdateInstructionText();
     }
 
     private void OnDestroy()
@@ -52,38 +77,247 @@ public class MultiplayerJoinManager : MonoBehaviour
             inputManager.onPlayerJoined -= OnPlayerJoined;
             inputManager.onPlayerLeft -= OnPlayerLeft;
         }
+        _joinInputAction?.Disable();
+        _joinInputAction?.Dispose();
     }
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Return))
-            OnStartPressed();
+        if (joinDebounceTimer > 0f)
+            joinDebounceTimer -= Time.deltaTime;
 
-        if (countingDown)
+        // Auto-start countdown when all ready
+        if ((state == GameState.Joining || state == GameState.CharacterSelect) && AllPlayersReady() && players.Count > 0)
+        {
+            StartCountdown();
+        }
+
+        if (state == GameState.Countdown)
         {
             countdownTimer -= Time.deltaTime;
             if (countdownText != null)
-                countdownText.text = "Starting in " + Mathf.CeilToInt(countdownTimer) + "...";
+                countdownText.text = $"Starting in {Mathf.CeilToInt(countdownTimer)}...";
 
             if (countdownTimer <= 0f)
-            {
-                countingDown = false;
                 BeginGame();
-            }
         }
 
         if (startButton != null)
-            startButton.interactable = (joinedCount > 0 && AllReady());
+            startButton.interactable = AllPlayersReady() && players.Count > 0;
     }
 
-    private void CreateJoinScreen()
-    {
-        GameObject canvasObj = new GameObject("JoinCanvas");
-        canvasObj.transform.SetParent(transform, false);
-        canvas = canvasObj.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+    #region Join Handling
 
-        CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+    private void SetupJoinInput()
+    {
+        _joinInputAction = new InputAction("Join", binding: "*/<Button>");
+        _joinInputAction.performed += OnJoinInput;
+        _joinInputAction.Enable();
+    }
+
+    private void OnJoinInput(InputAction.CallbackContext ctx)
+    {
+        if (state != GameState.Joining && state != GameState.CharacterSelect)
+            return;
+
+        if (players.Count >= maxPlayers || joinDebounceTimer > 0f)
+            return;
+
+        InputDevice device = ctx.control.device;
+
+        // Check if device already joined
+        if (joinedDevices.Contains(device))
+            return;
+
+        inputManager.JoinPlayer(-1, -1, null, device);
+    }
+
+    private void OnPlayerJoined(PlayerInput pi)
+    {
+        if (players.Count >= maxPlayers || joinDebounceTimer > 0f)
+        {
+            Destroy(pi.gameObject);
+            return;
+        }
+
+        // Get the device that triggered this join
+        InputDevice device = null;
+        if (pi.devices.Count > 0)
+            device = pi.devices[0];
+
+        // Check if this device already joined
+        if (device != null && joinedDevices.Contains(device))
+        {
+            Destroy(pi.gameObject);
+            return;
+        }
+
+        // Track this device
+        if (device != null)
+            joinedDevices.Add(device);
+
+        players.Add(pi);
+        int slotIndex = players.Count - 1;
+
+        PlayerSlotUI slot = slots[slotIndex];
+        slot.AssignPlayer(pi);
+
+        if (pi.TryGetComponent<SlotInputHandler>(out var handler))
+        {
+            handler.AssignedSlot = slot;
+            handler.enabled = true;
+        }
+
+        state = GameState.CharacterSelect;
+        joinDebounceTimer = 0.5f;
+
+        UpdateInstructionText();
+
+        string deviceName = device != null ? device.displayName : "unknown";
+        Debug.Log($"[MJM] Player {players.Count} joined on {deviceName}");
+    }
+
+    private void OnPlayerLeft(PlayerInput pi)
+    {
+        int idx = players.IndexOf(pi);
+        if (idx < 0) return;
+
+        // Remove device from joined set
+        if (pi.devices.Count > 0)
+            joinedDevices.Remove(pi.devices[0]);
+
+        slots[idx].UnassignPlayer();
+        players.RemoveAt(idx);
+
+        // Shift remaining players down
+        for (int i = idx; i < players.Count; i++)
+        {
+            slots[i].AssignPlayer(players[i]);
+            if (players[i].TryGetComponent<SlotInputHandler>(out var h))
+                h.AssignedSlot = slots[i];
+        }
+
+        if (players.Count == 0)
+            state = GameState.Joining;
+
+        UpdateInstructionText();
+    }
+
+    #endregion
+
+    #region Game Start
+
+    private bool AllPlayersReady()
+    {
+        if (players.Count == 0) return false;
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (!slots[i].IsReady)
+                return false;
+        }
+        return true;
+    }
+
+    private void StartCountdown()
+    {
+        state = GameState.Countdown;
+        countdownTimer = countdownTime;
+
+        _joinInputAction?.Disable();
+        inputManager.DisableJoining();
+
+        if (countdownText != null)
+            countdownText.gameObject.SetActive(true);
+    }
+
+    private void BeginGame()
+    {
+        state = GameState.Playing;
+
+        if (joinCanvas != null)
+            joinCanvas.SetActive(false);
+
+        if (timerScript != null)
+            timerScript.tick = true;
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            PlayerInput pi = players[i];
+            CharacterData chosenChar = slots[i].SelectedCharacter;
+
+            if (pi == null) continue;
+
+            // Teleport to spawn
+            if (spawnPoints != null && i < spawnPoints.Count && spawnPoints[i] != null)
+            {
+                pi.transform.SetPositionAndRotation(
+                    spawnPoints[i].position,
+                    spawnPoints[i].rotation
+                );
+            }
+
+            // Show player model
+            if (pi.TryGetComponent<HideUntilGameStart>(out var hider))
+                hider.Show();
+
+            // Disable lobby input, enable gameplay input
+            if (pi.TryGetComponent<SlotInputHandler>(out var slotHandler))
+                slotHandler.enabled = false;
+
+            if (pi.TryGetComponent<moveTEST>(out var mover))
+                mover.enabled = true;
+
+            // Spawn character visual
+            if (chosenChar != null && chosenChar.playerPrefab != null)
+            {
+                GameObject skin = Instantiate(
+                    chosenChar.playerPrefab,
+                    pi.transform
+                );
+                skin.transform.localPosition = Vector3.zero;
+                skin.transform.localRotation = Quaternion.identity;
+            }
+
+            Debug.Log($"[MJM] Player {i + 1} started as {chosenChar?.characterName ?? "unknown"}");
+        }
+    }
+
+    #endregion
+
+    #region UI
+
+    private void UpdateInstructionText()
+    {
+        if (instructionText == null) return;
+
+        if (state == GameState.Joining)
+        {
+            instructionText.text = players.Count switch
+            {
+                0 => "PRESS ANY BUTTON TO JOIN",
+                int n when n < maxPlayers => $"{n} PLAYER(S) JOINED — PRESS A BUTTON TO JOIN",
+                _ => "MAX PLAYERS — GET READY"
+            };
+        }
+        else if (state == GameState.CharacterSelect)
+        {
+            instructionText.text = "SELECT CHARACTER — PRESS SUBMIT TO READY";
+        }
+        else
+        {
+            instructionText.text = "";
+        }
+    }
+
+    private void BuildUI()
+    {
+        var canvasObj = new GameObject("JoinCanvas");
+        canvasObj.transform.SetParent(transform, false);
+        var canvas = canvasObj.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 100;
+
+        var scaler = canvasObj.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920, 1080);
         scaler.matchWidthOrHeight = 0.5f;
@@ -91,559 +325,249 @@ public class MultiplayerJoinManager : MonoBehaviour
         canvasObj.AddComponent<GraphicRaycaster>();
         joinCanvas = canvasObj;
 
-        Color[] teamColors = new Color[]
-        {
-            new Color(0.85f, 0.15f, 0.15f),
-            new Color(0.15f, 0.45f, 0.85f),
-            new Color(0.15f, 0.75f, 0.25f),
-            new Color(0.85f, 0.65f, 0.10f)
-        };
+        // Background
+        CreateStretchedImage(canvasObj.transform, "Background", new Color(0.08f, 0.08f, 0.08f))
+            .rectTransform.SetAsFirstSibling();
 
-        Vector2[] positions = new Vector2[]
-        {
-            new Vector2(-320, 100),
-            new Vector2(320, 100),
-            new Vector2(-320, -150),
-            new Vector2(320, -150)
-        };
-
+        // Player slots
         for (int i = 0; i < maxPlayers; i++)
-        {
-            GameObject slotObj = new GameObject("PlayerSlot_" + i);
-            slotObj.transform.SetParent(canvasObj.transform, false);
+            slots.Add(BuildSlot(canvasObj.transform, i));
 
-            Image bg = slotObj.AddComponent<Image>();
-            bg.color = new Color(0.25f, 0.25f, 0.25f, 1f);
+        // Instruction text
+        instructionText = CreateText(
+            canvasObj.transform, "InstructionText",
+            "PRESS ANY BUTTON TO JOIN", 36, Color.white, TextAnchor.UpperCenter
+        );
+        SetAnchors(instructionText.rectTransform,
+            new Vector2(0, 1), new Vector2(1, 1), Vector2.zero, new Vector2(0, -80));
 
-            RectTransform slotRT = slotObj.AddComponent<RectTransform>();
-            slotRT.anchorMin = new Vector2(0.5f, 0.5f);
-            slotRT.anchorMax = new Vector2(0.5f, 0.5f);
-            slotRT.pivot = new Vector2(0.5f, 0.5f);
-            slotRT.anchoredPosition = positions[i];
-            slotRT.sizeDelta = new Vector2(350, 220);
-
-            PlayerSlotUI slot = slotObj.AddComponent<PlayerSlotUI>();
-            slot.playerIndex = i;
-            slot.characters = new List<CharacterData>(characters);
-            slots.Add(slot);
-
-            GameObject header = new GameObject("HeaderBar");
-            header.transform.SetParent(slotObj.transform, false);
-            Image headerImg = header.AddComponent<Image>();
-            headerImg.color = teamColors[i];
-            slot.SetHeaderBar(headerImg);
-
-            RectTransform headerRT = header.GetComponent<RectTransform>();
-            headerRT.anchorMin = new Vector2(0, 1);
-            headerRT.anchorMax = new Vector2(1, 1);
-            headerRT.offsetMin = Vector2.zero;
-            headerRT.offsetMax = Vector2.zero;
-            headerRT.sizeDelta = new Vector2(0, 6);
-
-            GameObject labelObj = new GameObject("PlayerLabel");
-            labelObj.transform.SetParent(slotObj.transform, false);
-            Text label = labelObj.AddComponent<Text>();
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            label.text = "WAITING...";
-            label.alignment = TextAnchor.UpperLeft;
-            label.color = teamColors[i];
-            label.fontSize = 18;
-            slot.SetPlayerLabel(label);
-
-            RectTransform labelRT = labelObj.GetComponent<RectTransform>();
-            labelRT.anchorMin = new Vector2(0, 1);
-            labelRT.anchorMax = new Vector2(1, 1);
-            labelRT.offsetMin = new Vector2(15, -30);
-            labelRT.offsetMax = new Vector2(-15, -5);
-            labelRT.sizeDelta = new Vector2(0, 25);
-
-            GameObject charNameObj = new GameObject("CharacterName");
-            charNameObj.transform.SetParent(slotObj.transform, false);
-            Text charName = charNameObj.AddComponent<Text>();
-            charName.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            charName.text = "Press button to join";
-            charName.alignment = TextAnchor.MiddleCenter;
-            charName.color = Color.white;
-            charName.fontSize = 22;
-            slot.SetCharacterNameText(charName);
-
-            RectTransform charRT = charNameObj.GetComponent<RectTransform>();
-            charRT.anchorMin = new Vector2(0, 0.5f);
-            charRT.anchorMax = new Vector2(1, 0.5f);
-            charRT.offsetMin = new Vector2(20, -20);
-            charRT.offsetMax = new Vector2(-20, 20);
-            charRT.sizeDelta = new Vector2(0, 40);
-
-            GameObject leftBtn = CreateArrowButton(slotObj.transform, "LeftArrow", new Vector2(-120, 0), "<");
-            slot.SetLeftArrow(leftBtn.GetComponent<Button>());
-
-            GameObject rightBtn = CreateArrowButton(slotObj.transform, "RightArrow", new Vector2(120, 0), ">");
-            slot.SetRightArrow(rightBtn.GetComponent<Button>());
-
-            GameObject readyObj = new GameObject("ReadyButton");
-            readyObj.transform.SetParent(slotObj.transform, false);
-            Image readyImg = readyObj.AddComponent<Image>();
-            readyImg.color = teamColors[i];
-            Button readyB = readyObj.AddComponent<Button>();
-            readyB.targetGraphic = readyImg;
-            slot.SetReadyButton(readyB);
-
-            RectTransform readyRT = readyObj.GetComponent<RectTransform>();
-            readyRT.anchorMin = new Vector2(0, 0);
-            readyRT.anchorMax = new Vector2(1, 0);
-            readyRT.offsetMin = new Vector2(30, 15);
-            readyRT.offsetMax = new Vector2(-30, 40);
-            readyRT.sizeDelta = new Vector2(0, 25);
-
-            GameObject readyTextObj = new GameObject("ReadyText");
-            readyTextObj.transform.SetParent(readyObj.transform, false);
-            Text readyT = readyTextObj.AddComponent<Text>();
-            readyT.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            readyT.text = "READY";
-            readyT.alignment = TextAnchor.MiddleCenter;
-            readyT.color = Color.white;
-            readyT.fontSize = 16;
-            slot.SetReadyText(readyT);
-
-            RectTransform readyTRT = readyTextObj.GetComponent<RectTransform>();
-            readyTRT.anchorMin = Vector2.zero;
-            readyTRT.anchorMax = Vector2.one;
-            readyTRT.offsetMin = Vector2.zero;
-            readyTRT.offsetMax = Vector2.zero;
-        }
-
-        GameObject bgObj = new GameObject("Background");
-        bgObj.transform.SetParent(canvasObj.transform, false);
-        Image bgImg = bgObj.AddComponent<Image>();
-        bgImg.color = new Color(0.08f, 0.08f, 0.08f, 1f);
-        RectTransform bgRT = bgObj.GetComponent<RectTransform>();
-        bgRT.anchorMin = Vector2.zero;
-        bgRT.anchorMax = Vector2.one;
-        bgRT.offsetMin = Vector2.zero;
-        bgRT.offsetMax = Vector2.zero;
-        bgRT.SetAsFirstSibling();
-
-        GameObject instrObj = new GameObject("InstructionText");
-        instrObj.transform.SetParent(canvasObj.transform, false);
-        instructionText = instrObj.AddComponent<Text>();
-        instructionText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        instructionText.text = "PRESS ANY BUTTON TO JOIN";
-        instructionText.alignment = TextAnchor.UpperCenter;
-        instructionText.color = Color.white;
-        instructionText.fontSize = 36;
-
-        RectTransform instrRT = instrObj.GetComponent<RectTransform>();
-        instrRT.anchorMin = new Vector2(0, 1);
-        instrRT.anchorMax = new Vector2(1, 1);
-        instrRT.pivot = new Vector2(0.5f, 1);
-        instrRT.anchoredPosition = Vector2.zero;
-        instrRT.sizeDelta = new Vector2(0, 80);
-
-        GameObject startObj = new GameObject("StartButton");
-        startObj.transform.SetParent(canvasObj.transform, false);
-        Image startImg = startObj.AddComponent<Image>();
-        startImg.color = new Color(0.15f, 0.65f, 0.20f, 1f);
-        startButton = startObj.AddComponent<Button>();
-        startButton.targetGraphic = startImg;
+        // Start button (manual start if auto fails)
+        startButton = CreateButton(
+            canvasObj.transform, "StartButton", "START", 20,
+            new Color(0.15f, 0.65f, 0.20f)
+        );
+        var sRT = startButton.GetComponent<RectTransform>();
+        sRT.anchorMin = new Vector2(0.5f, 0);
+        sRT.anchorMax = new Vector2(0.5f, 0);
+        sRT.pivot = new Vector2(0.5f, 0);
+        sRT.anchoredPosition = new Vector2(0, 40);
+        sRT.sizeDelta = new Vector2(180, 50);
         startButton.interactable = false;
+        startButton.onClick.AddListener(StartCountdown);
 
-        RectTransform startRT = startObj.GetComponent<RectTransform>();
-        startRT.anchorMin = new Vector2(0.5f, 0);
-        startRT.anchorMax = new Vector2(0.5f, 0);
-        startRT.pivot = new Vector2(0.5f, 0);
-        startRT.anchoredPosition = new Vector2(0, 40);
-        startRT.sizeDelta = new Vector2(180, 50);
-
-        GameObject startTextObj = new GameObject("Text");
-        startTextObj.transform.SetParent(startObj.transform, false);
-        Text startT = startTextObj.AddComponent<Text>();
-        startT.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        startT.text = "START";
-        startT.alignment = TextAnchor.MiddleCenter;
-        startT.color = Color.white;
-        startT.fontSize = 20;
-
-        RectTransform startTRT = startTextObj.GetComponent<RectTransform>();
-        startTRT.anchorMin = Vector2.zero;
-        startTRT.anchorMax = Vector2.one;
-        startTRT.offsetMin = Vector2.zero;
-        startTRT.offsetMax = Vector2.zero;
-
-        GameObject countObj = new GameObject("CountdownText");
-        countObj.transform.SetParent(canvasObj.transform, false);
-        countdownText = countObj.AddComponent<Text>();
-        countdownText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        countdownText.text = "STARTING...";
-        countdownText.alignment = TextAnchor.MiddleCenter;
-        countdownText.color = Color.yellow;
-        countdownText.fontSize = 60;
-
-        RectTransform countRT = countObj.GetComponent<RectTransform>();
-        countRT.anchorMin = new Vector2(0.5f, 0.5f);
-        countRT.anchorMax = new Vector2(0.5f, 0.5f);
-        countRT.pivot = new Vector2(0.5f, 0.5f);
-        countRT.anchoredPosition = Vector2.zero;
-        countRT.sizeDelta = new Vector2(400, 80);
+        // Countdown text
+        countdownText = CreateText(
+            canvasObj.transform, "CountdownText", "", 60,
+            Color.yellow, TextAnchor.MiddleCenter
+        );
+        var cRT = countdownText.rectTransform;
+        cRT.anchorMin = new Vector2(0.5f, 0.5f);
+        cRT.anchorMax = new Vector2(0.5f, 0.5f);
+        cRT.pivot = new Vector2(0.5f, 0.5f);
+        cRT.anchoredPosition = Vector2.zero;
+        cRT.sizeDelta = new Vector2(600, 100);
         countdownText.gameObject.SetActive(false);
     }
 
-    private GameObject CreateArrowButton(Transform parent, string name, Vector2 pos, string symbol)
+    private PlayerSlotUI BuildSlot(Transform parent, int index)
     {
-        GameObject btnObj = new GameObject(name);
-        btnObj.transform.SetParent(parent, false);
-        Image img = btnObj.AddComponent<Image>();
-        img.color = new Color(0.45f, 0.45f, 0.45f, 1f);
-        Button btn = btnObj.AddComponent<Button>();
+        Color teamColor = TeamColors[index];
+
+        var slotObj = new GameObject($"PlayerSlot_{index}");
+        slotObj.transform.SetParent(parent, false);
+
+        var bg = slotObj.AddComponent<Image>();
+        bg.color = new Color(0.18f, 0.18f, 0.18f);
+
+        var slotRT = slotObj.GetComponent<RectTransform>();
+        slotRT.anchorMin = new Vector2(0.5f, 0.5f);
+        slotRT.anchorMax = new Vector2(0.5f, 0.5f);
+        slotRT.pivot = new Vector2(0.5f, 0.5f);
+        slotRT.anchoredPosition = SlotPositions[index];
+        slotRT.sizeDelta = new Vector2(380, 310);
+
+        var slot = slotObj.AddComponent<PlayerSlotUI>();
+        slot.PlayerIndex = index;
+        slot.Characters = new List<CharacterData>(characters);
+
+        // Header bar
+        var headerObj = new GameObject("HeaderBar");
+        headerObj.transform.SetParent(slotObj.transform, false);
+        var headerImg = headerObj.AddComponent<Image>();
+        headerImg.color = teamColor;
+        var hRT = headerObj.GetComponent<RectTransform>();
+        hRT.anchorMin = new Vector2(0, 1);
+        hRT.anchorMax = new Vector2(1, 1);
+        hRT.pivot = new Vector2(0.5f, 1);
+        hRT.anchoredPosition = Vector2.zero;
+        hRT.sizeDelta = new Vector2(0, 8);
+        slot.HeaderBar = headerImg;
+
+        // Player label
+        var lbl = CreateText(
+            slotObj.transform, "PlayerLabel", "WAITING...",
+            16, teamColor, TextAnchor.MiddleLeft
+        );
+        var lblRT = lbl.rectTransform;
+        lblRT.anchorMin = new Vector2(0, 1);
+        lblRT.anchorMax = new Vector2(1, 1);
+        lblRT.pivot = new Vector2(0, 1);
+        lblRT.anchoredPosition = new Vector2(12, -10);
+        lblRT.sizeDelta = new Vector2(-12, 28);
+        slot.PlayerLabel = lbl;
+
+        // Preview image
+        var previewObj = new GameObject("PreviewImage");
+        previewObj.transform.SetParent(slotObj.transform, false);
+        var previewImg = previewObj.AddComponent<Image>();
+        previewImg.color = new Color(0.12f, 0.12f, 0.12f);
+        previewImg.preserveAspect = true;
+        var pRT = previewObj.GetComponent<RectTransform>();
+        pRT.anchorMin = new Vector2(0.5f, 1);
+        pRT.anchorMax = new Vector2(0.5f, 1);
+        pRT.pivot = new Vector2(0.5f, 1);
+        pRT.anchoredPosition = new Vector2(0, -46);
+        pRT.sizeDelta = new Vector2(160, 160);
+        previewImg.gameObject.SetActive(false);
+        slot.PreviewImage = previewImg;
+
+        // Character name
+        var charName = CreateText(
+            slotObj.transform, "CharacterName", "Press button to join",
+            20, Color.white, TextAnchor.MiddleCenter
+        );
+        var cnRT = charName.rectTransform;
+        cnRT.anchorMin = new Vector2(0, 0.5f);
+        cnRT.anchorMax = new Vector2(1, 0.5f);
+        cnRT.pivot = new Vector2(0.5f, 0.5f);
+        cnRT.anchoredPosition = new Vector2(0, 22);
+        cnRT.sizeDelta = new Vector2(-20, 32);
+        slot.CharacterNameText = charName;
+
+        // Left arrow
+        var leftBtn = CreateArrowButton(
+            slotObj.transform, "LeftArrow", "<",
+            new Vector2(0, 0), new Vector2(0, 0), new Vector2(0.5f, 0.5f), new Vector2(40, 70)
+        );
+        slot.LeftArrow = leftBtn;
+        leftBtn.onClick.AddListener(slot.SelectPrevious);
+
+        // Right arrow
+        var rightBtn = CreateArrowButton(
+            slotObj.transform, "RightArrow", ">",
+            new Vector2(1, 0), new Vector2(1, 0), new Vector2(0.5f, 0.5f), new Vector2(-40, 70)
+        );
+        slot.RightArrow = rightBtn;
+        rightBtn.onClick.AddListener(slot.SelectNext);
+
+        // Ready button
+        var readyBtn = CreateButton(
+            slotObj.transform, "ReadyButton", "READY", 16, teamColor
+        );
+        var rdyRT = readyBtn.GetComponent<RectTransform>();
+        rdyRT.anchorMin = new Vector2(0, 0);
+        rdyRT.anchorMax = new Vector2(1, 0);
+        rdyRT.pivot = new Vector2(0.5f, 0);
+        rdyRT.anchoredPosition = new Vector2(0, 52);
+        rdyRT.sizeDelta = new Vector2(-200, 36);
+        readyBtn.onClick.AddListener(slot.ToggleReady);
+        readyBtn.gameObject.SetActive(false);
+        slot.ReadyButton = readyBtn;
+
+        // Ready indicator
+        var readyInd = CreateText(
+            slotObj.transform, "ReadyIndicator", "READY", 18,
+            Color.green, TextAnchor.MiddleCenter
+        );
+        var riRT = readyInd.rectTransform;
+        riRT.anchorMin = new Vector2(0, 0);
+        riRT.anchorMax = new Vector2(1, 0);
+        riRT.pivot = new Vector2(0.5f, 0.5f);
+        riRT.anchoredPosition = new Vector2(0, 69);
+        riRT.sizeDelta = new Vector2(0, 30);
+        readyInd.gameObject.SetActive(false);
+        slot.ReadyIndicator = readyInd;
+
+        return slot;
+    }
+
+    private static Image CreateStretchedImage(Transform parent, string name, Color color)
+    {
+        var obj = new GameObject(name);
+        obj.transform.SetParent(parent, false);
+        var img = obj.AddComponent<Image>();
+        img.color = color;
+        var rt = obj.GetComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+        return img;
+    }
+
+    private static Text CreateText(Transform parent, string name, string content,
+        int fontSize, Color color, TextAnchor alignment)
+    {
+        var obj = new GameObject(name);
+        obj.transform.SetParent(parent, false);
+        var txt = obj.AddComponent<Text>();
+        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txt.text = content;
+        txt.fontSize = fontSize;
+        txt.color = color;
+        txt.alignment = alignment;
+        return txt;
+    }
+
+    private static Button CreateButton(Transform parent, string name, string label,
+        int fontSize, Color bgColor)
+    {
+        var obj = new GameObject(name);
+        obj.transform.SetParent(parent, false);
+        var img = obj.AddComponent<Image>();
+        img.color = bgColor;
+        var btn = obj.AddComponent<Button>();
         btn.targetGraphic = img;
 
-        RectTransform rt = btnObj.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(45, 45);
-
-        GameObject textObj = new GameObject("Text");
-        textObj.transform.SetParent(btnObj.transform, false);
-        Text txt = textObj.AddComponent<Text>();
+        var textObj = new GameObject("Text");
+        textObj.transform.SetParent(obj.transform, false);
+        var txt = textObj.AddComponent<Text>();
         txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        txt.text = symbol;
-        txt.alignment = TextAnchor.MiddleCenter;
+        txt.text = label;
+        txt.fontSize = fontSize;
         txt.color = Color.white;
-        txt.fontSize = 22;
+        txt.alignment = TextAnchor.MiddleCenter;
 
-        RectTransform textRT = textObj.GetComponent<RectTransform>();
-        textRT.anchorMin = Vector2.zero;
-        textRT.anchorMax = Vector2.one;
-        textRT.offsetMin = Vector2.zero;
-        textRT.offsetMax = Vector2.zero;
+        var txtRT = txt.GetComponent<RectTransform>();
+        txtRT.anchorMin = Vector2.zero;
+        txtRT.anchorMax = Vector2.one;
+        txtRT.offsetMin = Vector2.zero;
+        txtRT.offsetMax = Vector2.zero;
 
-        return btnObj;
+        return btn;
     }
 
-    private void OnPlayerJoined(PlayerInput playerInput)
+    private static Button CreateArrowButton(Transform parent, string name, string symbol,
+        Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 position)
     {
-        if (joinedCount >= maxPlayers) return;
-
-        PlayerSlotUI slot = slots[joinedCount];
-        slot.AssignPlayer(playerInput);
-
-        SlotInputHandler handler = playerInput.GetComponent<SlotInputHandler>();
-        if (handler != null)
-        {
-            handler.assignedSlot = slot;
-        }
-        else
-        {
-            Debug.LogWarning("Player prefab missing SlotInputHandler component!");
-        }
-
-        joinedCount++;
-        UpdateInstruction();
-
-        Debug.Log("Player " + joinedCount + " joined (slot " + (joinedCount - 1) + ")");
+        var btn = CreateButton(parent, name, symbol, 22, new Color(0.35f, 0.35f, 0.35f));
+        var rt = btn.GetComponent<RectTransform>();
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.pivot = pivot;
+        rt.anchoredPosition = position;
+        rt.sizeDelta = new Vector2(44, 44);
+        return btn;
     }
 
-    private void OnPlayerLeft(PlayerInput playerInput)
+    private static void SetAnchors(RectTransform rt,
+        Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
     {
-        if (joinedCount <= 0) return;
-        joinedCount--;
-        slots[joinedCount].UnassignPlayer();
-        UpdateInstruction();
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.offsetMin = offsetMin;
+        rt.offsetMax = offsetMax;
     }
 
-    private bool AllReady()
-    {
-        for (int i = 0; i < joinedCount; i++)
-        {
-            if (!slots[i].IsReady()) return false;
-        }
-        return true;
-    }
-
-    private void OnStartPressed()
-    {
-        if (joinedCount == 0) return;
-
-        if (inputManager != null)
-            inputManager.DisableJoining();
-
-        if (!countingDown)
-        {
-            countingDown = true;
-            countdownTimer = countdownTime;
-            if (countdownText != null)
-                countdownText.gameObject.SetActive(true);
-        }
-    }
-
-    private void BeginGame()
-    {
-        if (joinCanvas != null)
-            joinCanvas.SetActive(false);
-
-        if (timerScript != null)
-            timerScript.tick = true;
-
-        Debug.Log("Game started! Players: " + joinedCount);
-        for (int i = 0; i < joinedCount; i++)
-        {
-            CharacterData cd = slots[i].GetSelectedCharacter();
-            Debug.Log("  Slot " + i + ": " + (cd != null ? cd.characterName : "No character selected"));
-        }
-    }
-
-    private void UpdateInstruction()
-    {
-        if (instructionText == null) return;
-
-        if (joinedCount == 0)
-            instructionText.text = "PRESS ANY BUTTON TO JOIN";
-        else if (joinedCount < maxPlayers)
-            instructionText.text = joinedCount + " PLAYER(S) JOINED - PRESS ANY BUTTON TO JOIN";
-        else
-            instructionText.text = "MAX PLAYERS REACHED";
-    }
-}
-
-public class PlayerSlotUI : MonoBehaviour
-{
-    public int playerIndex = 0;
-    public bool isOccupied = false;
-    public List<CharacterData> characters = new List<CharacterData>();
-
-    [SerializeField] private Text playerLabel;
-    [SerializeField] private Text characterNameText;
-    [SerializeField] private Text readyText;
-    [SerializeField] private Image characterPreviewImage;
-    [SerializeField] private Button leftArrowButton;
-    [SerializeField] private Button rightArrowButton;
-    [SerializeField] private Button readyButton;
-    [SerializeField] private Image headerBar;
-
-    private int selectedCharacterIndex = 0;
-    private bool isReady = false;
-    private PlayerInput assignedInput = null;
-
-    private Color[] teamColors = new Color[]
-    {
-        new Color(0.85f, 0.15f, 0.15f),
-        new Color(0.15f, 0.45f, 0.85f),
-        new Color(0.15f, 0.75f, 0.25f),
-        new Color(0.85f, 0.65f, 0.10f)
-    };
-
-    private bool lastFrameWasLeft = false;
-    private bool lastFrameWasRight = false;
-
-    public void AssignPlayer(PlayerInput input)
-    {
-        assignedInput = input;
-        isOccupied = true;
-        isReady = false;
-        selectedCharacterIndex = 0;
-        lastFrameWasLeft = false;
-        lastFrameWasRight = false;
-
-        Color col = teamColors[Mathf.Clamp(playerIndex, 0, teamColors.Length - 1)];
-        if (headerBar != null) headerBar.color = col;
-        if (playerLabel != null)
-        {
-            playerLabel.text = "PLAYER " + (playerIndex + 1);
-            playerLabel.color = col;
-        }
-
-        RefreshCharacterDisplay();
-    }
-
-    public void UnassignPlayer()
-    {
-        assignedInput = null;
-        isOccupied = false;
-        isReady = false;
-
-        if (playerLabel != null)
-        {
-            playerLabel.text = "WAITING...";
-            playerLabel.color = teamColors[Mathf.Clamp(playerIndex, 0, teamColors.Length - 1)];
-        }
-        if (characterNameText != null)
-            characterNameText.text = "Press button to join";
-    }
-
-    public bool IsReady() => isReady;
-
-    public CharacterData GetSelectedCharacter()
-    {
-        if (characters == null || characters.Count == 0) return null;
-        return characters[selectedCharacterIndex];
-    }
-
-    public void SetPlayerLabel(Text t) { playerLabel = t; }
-    public void SetCharacterNameText(Text t) { characterNameText = t; }
-    public void SetReadyText(Text t) { readyText = t; }
-    public void SetCharacterPreviewImage(Image i) { characterPreviewImage = i; }
-    public void SetLeftArrow(Button b) { leftArrowButton = b; if (b != null) b.onClick.AddListener(OnPreviousCharacter); }
-    public void SetRightArrow(Button b) { rightArrowButton = b; if (b != null) b.onClick.AddListener(OnNextCharacter); }
-    public void SetReadyButton(Button b) { readyButton = b; if (b != null) b.onClick.AddListener(OnReadyToggle); }
-    public void SetHeaderBar(Image i) { headerBar = i; }
-
-    private void Update()
-    {
-        if (!isOccupied || assignedInput == null || isReady) return;
-
-        var moveAction = assignedInput.actions["Move"];
-        if (moveAction == null) return;
-
-        Vector2 moveInput = moveAction.ReadValue<Vector2>();
-        float horizontal = moveInput.x;
-
-        if (horizontal > 0.5f)
-        {
-            if (!lastFrameWasRight)
-            {
-                OnNextCharacter();
-                lastFrameWasRight = true;
-            }
-        }
-        else
-        {
-            lastFrameWasRight = false;
-        }
-
-        if (horizontal < -0.5f)
-        {
-            if (!lastFrameWasLeft)
-            {
-                OnPreviousCharacter();
-                lastFrameWasLeft = true;
-            }
-        }
-        else
-        {
-            lastFrameWasLeft = false;
-        }
-    }
-
-    public void OnPreviousCharacter()
-    {
-        if (!isOccupied || isReady || characters.Count == 0) return;
-        selectedCharacterIndex = (selectedCharacterIndex - 1 + characters.Count) % characters.Count;
-        RefreshCharacterDisplay();
-    }
-
-    public void OnNextCharacter()
-    {
-        if (!isOccupied || isReady || characters.Count == 0) return;
-        selectedCharacterIndex = (selectedCharacterIndex + 1) % characters.Count;
-        RefreshCharacterDisplay();
-    }
-
-    public void OnReadyToggle()
-    {
-        if (!isOccupied) return;
-        isReady = !isReady;
-        RefreshReadyState();
-    }
-
-    private void RefreshCharacterDisplay()
-    {
-        if (characters == null || characters.Count == 0) return;
-        CharacterData data = characters[selectedCharacterIndex];
-
-        if (characterNameText != null)
-            characterNameText.text = data.characterName;
-
-        if (characterPreviewImage != null && data.previewSprite != null)
-            characterPreviewImage.sprite = data.previewSprite;
-    }
-
-    private void RefreshReadyState()
-    {
-        if (readyText != null) readyText.gameObject.SetActive(isReady);
-        if (leftArrowButton != null) leftArrowButton.interactable = !isReady;
-        if (rightArrowButton != null) rightArrowButton.interactable = !isReady;
-    }
-}
-
-public class SlotInputHandler : MonoBehaviour
-{
-    [HideInInspector] public PlayerSlotUI assignedSlot;
-    private PlayerInput playerInput;
-
-    private float navCooldown = 0f;
-    private const float NAV_COOLDOWN_TIME = 0.25f;
-    private float prevNavX = 0f;
-
-    private void Awake()
-    {
-        playerInput = GetComponent<PlayerInput>();
-    }
-
-    private void OnEnable()
-    {
-        if (playerInput == null) return;
-
-        var submit = playerInput.actions["Submit"];
-        if (submit != null) submit.performed += OnSubmit;
-
-        var cancel = playerInput.actions["Cancel"];
-        if (cancel != null) cancel.performed += OnCancel;
-    }
-
-    private void OnDisable()
-    {
-        if (playerInput == null) return;
-
-        var submit = playerInput.actions["Submit"];
-        if (submit != null) submit.performed -= OnSubmit;
-
-        var cancel = playerInput.actions["Cancel"];
-        if (cancel != null) cancel.performed -= OnCancel;
-    }
-
-    private void Update()
-    {
-        if (assignedSlot == null || playerInput == null) return;
-
-        navCooldown -= Time.deltaTime;
-
-        float navX = 0f;
-
-        var moveAction = playerInput.actions["Move"];
-        if (moveAction != null)
-        {
-            navX = moveAction.ReadValue<Vector2>().x;
-        }
-
-        if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A))
-            navX = -1f;
-        if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D))
-            navX = 1f;
-
-        if (navX < -0.5f && prevNavX >= -0.5f && navCooldown <= 0f)
-        {
-            assignedSlot.OnPreviousCharacter();
-            navCooldown = NAV_COOLDOWN_TIME;
-        }
-        else if (navX > 0.5f && prevNavX <= 0.5f && navCooldown <= 0f)
-        {
-            assignedSlot.OnNextCharacter();
-            navCooldown = NAV_COOLDOWN_TIME;
-        }
-
-        prevNavX = navX;
-    }
-
-    private void OnSubmit(InputAction.CallbackContext ctx)
-    {
-        if (assignedSlot != null)
-            assignedSlot.OnReadyToggle();
-    }
-
-    private void OnCancel(InputAction.CallbackContext ctx)
-    {
-        if (assignedSlot != null && assignedSlot.IsReady())
-            assignedSlot.OnReadyToggle();
-    }
+    #endregion
 }

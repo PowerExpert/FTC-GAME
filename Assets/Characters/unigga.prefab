@@ -327,7 +327,8 @@ GameObject:
   - component: {fileID: 5133363796360320936}
   - component: {fileID: 159164526390043792}
   - component: {fileID: 989555558526539905}
-  - component: {fileID: 3952589313750855589}
+  - component: {fileID: 2237359078846387103}
+  - component: {fileID: -6280335337547085459}
   m_Layer: 0
   m_Name: unigga
   m_TagString: RedRobot
@@ -471,8 +472,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4696a1dd27f65e244aecd75cb6c9c43b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  triggerScript: {fileID: 0}
-  triggerScript1: {fileID: 0}
   shootingPower: 0
   shootingAngle: 0
   scriptFuck: {fileID: 989555558526539905}
@@ -485,12 +484,11 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3770114947664062171}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7b2d4297638a184f821be74a6eafef6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::moveTEST
-  controller: {fileID: 611000418345376433}
   speed: 18
   gravity: 9.81
   rotationSpeed: 220
@@ -509,7 +507,19 @@ MonoBehaviour:
   near: {fileID: 6369717270888935472}
   far: {fileID: 6331248186618800402}
   isNearMode: 1
---- !u!114 &3952589313750855589
+--- !u!114 &2237359078846387103
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3770114947664062171}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b79afc81f1d38924e99529a6ed52af6f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SlotInputHandler
+--- !u!114 &-6280335337547085459
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -518,10 +528,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 3770114947664062171}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b8d647aa91b327f45a99390b775bc368, type: 3}
+  m_Script: {fileID: 11500000, guid: 69fd22a4413c4e64bb62f339841df229, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SlotInputHandler
-  assignedSlot: {fileID: 0}
+  m_EditorClassIdentifier: Assembly-CSharp::HideUntilGameStart
 --- !u!1 &3852464215237853095
 GameObject:
   m_ObjectHideFlags: 0
