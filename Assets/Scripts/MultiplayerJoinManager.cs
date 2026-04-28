@@ -4,13 +4,18 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 
 /// <summary>
-/// Multiplayer lobby: JOIN → CHARACTER SELECT → GAME START
+/// Lobby manager — no PlayerInputManager, no placeholder spawning.
+/// Tracks devices only during lobby. Spawns real player prefabs at game start.
+///
+/// SETUP:
+///  • No PlayerInputManager needed in the scene
+///  • Assign: playerPrefab, spawnPoints, characters, timerScript
+///  • Player prefab needs: PlayerInput, moveTEST, CharacterController
 /// </summary>
 public class MultiplayerJoinManager : MonoBehaviour
 {
     [Header("Required")]
     public List<CharacterData> characters;
-    public PlayerInputManager inputManager;
     public timer timerScript;
 
     [Header("Spawn Points")]
@@ -20,22 +25,34 @@ public class MultiplayerJoinManager : MonoBehaviour
     public int maxPlayers = 4;
     public float countdownTime = 3f;
 
-    private enum GameState { Joining, CharacterSelect, Countdown, Playing }
-    private GameState state = GameState.Joining;
+    // ── Internal lobby record — one per joined device ─────────────────────────
+    private class LobbyPlayer
+    {
+        public InputDevice device;
+        public int characterIndex;
+        public bool isReady;
+    }
 
-    private readonly List<PlayerSlotUI> slots = new();
-    private readonly List<PlayerInput> players = new();
-    private readonly HashSet<InputDevice> joinedDevices = new();
+    private readonly List<LobbyPlayer> _lobbyPlayers = new();
+    private readonly List<PlayerSlotUI> _slots = new();
 
-    private Text instructionText;
-    private Text countdownText;
-    private Button startButton;
-    private GameObject joinCanvas;
+    private readonly Dictionary<InputDevice, float> _deviceCooldowns = new();
+    private const float DeviceCooldown = 0.8f;
+    private const float JoinDebounceTime = 0.4f;
+    private float _joinDebounce;
 
-    private float countdownTimer;
-    private float joinDebounceTimer;
+    private enum LobbyState { Joining, CharacterSelect, Countdown, Playing }
+    private LobbyState _state = LobbyState.Joining;
 
-    private InputAction _joinInputAction;
+    private float _countdownTimer;
+    private Text _instructionText;
+    private Text _countdownText;
+    private Button _startButton;
+    private GameObject _joinCanvas;
+
+    private InputAction _joinAction;
+
+    private readonly float[] _navTimers = new float[4];
 
     private static readonly Color[] TeamColors =
     {
@@ -48,265 +65,241 @@ public class MultiplayerJoinManager : MonoBehaviour
         new(-400, 200), new(400, 200), new(-400, -200), new(400, -200)
     };
 
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Unity lifecycle
+
     private void Start()
     {
         if (characters == null || characters.Count == 0)
-        {
-            Debug.LogError("[MJM] No characters assigned!");
-            return;
-        }
-
-        if (inputManager == null)
-        {
-            Debug.LogError("[MJM] PlayerInputManager not assigned!");
-            return;
-        }
-
-        inputManager.onPlayerJoined += OnPlayerJoined;
-        inputManager.onPlayerLeft += OnPlayerLeft;
+        { Debug.LogError("[MJM] No characters assigned!"); return; }
 
         BuildUI();
-        SetupJoinInput();
-        UpdateInstructionText();
+        SetupJoinAction();
+        RefreshInstructionText();
     }
 
     private void OnDestroy()
     {
-        if (inputManager != null)
-        {
-            inputManager.onPlayerJoined -= OnPlayerJoined;
-            inputManager.onPlayerLeft -= OnPlayerLeft;
-        }
-        _joinInputAction?.Disable();
-        _joinInputAction?.Dispose();
+        _joinAction?.Disable();
+        _joinAction?.Dispose();
     }
 
     private void Update()
     {
-        if (joinDebounceTimer > 0f)
-            joinDebounceTimer -= Time.deltaTime;
-
-        // Auto-start countdown when all ready
-        if ((state == GameState.Joining || state == GameState.CharacterSelect) && AllPlayersReady() && players.Count > 0)
+        // Tick per-device cooldowns
+        var keys = new List<InputDevice>(_deviceCooldowns.Keys);
+        foreach (var d in keys)
         {
-            StartCountdown();
+            _deviceCooldowns[d] -= Time.deltaTime;
+            if (_deviceCooldowns[d] <= 0f) _deviceCooldowns.Remove(d);
         }
 
-        if (state == GameState.Countdown)
-        {
-            countdownTimer -= Time.deltaTime;
-            if (countdownText != null)
-                countdownText.text = $"Starting in {Mathf.CeilToInt(countdownTimer)}...";
+        if (_joinDebounce > 0f) _joinDebounce -= Time.deltaTime;
 
-            if (countdownTimer <= 0f)
+        if (_state == LobbyState.CharacterSelect)
+            PollLobbyInput();
+
+        // Auto-start when all players ready
+        if (_state == LobbyState.CharacterSelect && AllPlayersReady())
+            StartCountdown();
+
+        if (_state == LobbyState.Countdown)
+        {
+            _countdownTimer -= Time.deltaTime;
+            if (_countdownText != null)
+                _countdownText.text = $"Starting in {Mathf.CeilToInt(_countdownTimer)}...";
+            if (_countdownTimer <= 0f)
                 BeginGame();
         }
 
-        if (startButton != null)
-            startButton.interactable = AllPlayersReady() && players.Count > 0;
-    }
-
-    #region Join Handling
-
-    private void SetupJoinInput()
-    {
-        _joinInputAction = new InputAction("Join", binding: "*/<Button>");
-        _joinInputAction.performed += OnJoinInput;
-        _joinInputAction.Enable();
-    }
-
-    private void OnJoinInput(InputAction.CallbackContext ctx)
-    {
-        if (state != GameState.Joining && state != GameState.CharacterSelect)
-            return;
-
-        if (players.Count >= maxPlayers || joinDebounceTimer > 0f)
-            return;
-
-        InputDevice device = ctx.control.device;
-
-        // Check if device already joined
-        if (joinedDevices.Contains(device))
-            return;
-
-        inputManager.JoinPlayer(-1, -1, null, device);
-    }
-
-    private void OnPlayerJoined(PlayerInput pi)
-    {
-        if (players.Count >= maxPlayers || joinDebounceTimer > 0f)
-        {
-            Destroy(pi.gameObject);
-            return;
-        }
-
-        // Get the device that triggered this join
-        InputDevice device = null;
-        if (pi.devices.Count > 0)
-            device = pi.devices[0];
-
-        // Check if this device already joined
-        if (device != null && joinedDevices.Contains(device))
-        {
-            Destroy(pi.gameObject);
-            return;
-        }
-
-        // Track this device
-        if (device != null)
-            joinedDevices.Add(device);
-
-        players.Add(pi);
-        int slotIndex = players.Count - 1;
-
-        PlayerSlotUI slot = slots[slotIndex];
-        slot.AssignPlayer(pi);
-
-        if (pi.TryGetComponent<SlotInputHandler>(out var handler))
-        {
-            handler.AssignedSlot = slot;
-            handler.enabled = true;
-        }
-
-        state = GameState.CharacterSelect;
-        joinDebounceTimer = 0.5f;
-
-        UpdateInstructionText();
-
-        string deviceName = device != null ? device.displayName : "unknown";
-        Debug.Log($"[MJM] Player {players.Count} joined on {deviceName}");
-    }
-
-    private void OnPlayerLeft(PlayerInput pi)
-    {
-        int idx = players.IndexOf(pi);
-        if (idx < 0) return;
-
-        // Remove device from joined set
-        if (pi.devices.Count > 0)
-            joinedDevices.Remove(pi.devices[0]);
-
-        slots[idx].UnassignPlayer();
-        players.RemoveAt(idx);
-
-        // Shift remaining players down
-        for (int i = idx; i < players.Count; i++)
-        {
-            slots[i].AssignPlayer(players[i]);
-            if (players[i].TryGetComponent<SlotInputHandler>(out var h))
-                h.AssignedSlot = slots[i];
-        }
-
-        if (players.Count == 0)
-            state = GameState.Joining;
-
-        UpdateInstructionText();
+        if (_startButton != null)
+            _startButton.interactable = AllPlayersReady();
     }
 
     #endregion
 
-    #region Game Start
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Join handling
+
+    private void SetupJoinAction()
+    {
+        // Only gamepad buttons and keyboard keys — avoids phantom joins from
+        // mouse clicks and UI pointer events that "*/<Button>" would catch
+        _joinAction = new InputAction("Join");
+        _joinAction.AddBinding("<Gamepad>/<Button>");
+        _joinAction.AddBinding("<Keyboard>/<Key>");
+        _joinAction.performed += OnJoinPressed;
+        _joinAction.Enable();
+    }
+
+    private void OnJoinPressed(InputAction.CallbackContext ctx)
+    {
+        if (_state == LobbyState.Countdown || _state == LobbyState.Playing) return;
+        if (_lobbyPlayers.Count >= maxPlayers) return;
+        if (_joinDebounce > 0f) return;
+
+        InputDevice device = ctx.control.device;
+
+        // Already joined?
+        foreach (var p in _lobbyPlayers)
+            if (p.device == device) return;
+
+        // Held-button spam guard
+        if (_deviceCooldowns.ContainsKey(device)) return;
+        _deviceCooldowns[device] = DeviceCooldown;
+
+        // Register device — no prefab spawned yet
+        var lp = new LobbyPlayer { device = device, characterIndex = 0, isReady = false };
+        _lobbyPlayers.Add(lp);
+
+        _slots[_lobbyPlayers.Count - 1].AssignPlayerDevice(0, characters);
+
+        _state = LobbyState.CharacterSelect;
+        _joinDebounce = JoinDebounceTime;
+
+        RefreshInstructionText();
+        Debug.Log($"[MJM] Player {_lobbyPlayers.Count} joined — {device.displayName}");
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Lobby input polling
+
+    private void PollLobbyInput()
+    {
+        for (int i = 0; i < _lobbyPlayers.Count; i++)
+        {
+            LobbyPlayer lp = _lobbyPlayers[i];
+            PlayerSlotUI slot = _slots[i];
+
+            _navTimers[i] -= Time.deltaTime;
+
+            float navX = 0f;
+            bool submit = false;
+            bool cancel = false;
+
+            if (lp.device is Gamepad gp)
+            {
+                navX = gp.leftStick.x.ReadValue();
+                if (Mathf.Abs(navX) < 0.3f) navX = gp.dpad.x.ReadValue();
+                submit = gp.buttonSouth.wasPressedThisFrame;
+                cancel = gp.buttonEast.wasPressedThisFrame;
+            }
+            else if (lp.device is Keyboard kb)
+            {
+                if (kb.leftArrowKey.isPressed || kb.aKey.isPressed) navX = -1f;
+                if (kb.rightArrowKey.isPressed || kb.dKey.isPressed) navX = 1f;
+                submit = kb.enterKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame;
+                cancel = kb.escapeKey.wasPressedThisFrame;
+            }
+
+            // Navigate character select
+            if (navX < -0.5f && _navTimers[i] <= 0f)
+            {
+                lp.characterIndex = Mod(lp.characterIndex - 1, characters.Count);
+                slot.SetCharacterIndex(lp.characterIndex);
+                _navTimers[i] = 0.25f;
+            }
+            else if (navX > 0.5f && _navTimers[i] <= 0f)
+            {
+                lp.characterIndex = Mod(lp.characterIndex + 1, characters.Count);
+                slot.SetCharacterIndex(lp.characterIndex);
+                _navTimers[i] = 0.25f;
+            }
+            else if (Mathf.Abs(navX) < 0.3f)
+            {
+                _navTimers[i] = 0f; // reset so next press fires immediately
+            }
+
+            // Ready toggle
+            if (submit)
+            {
+                lp.isReady = !lp.isReady;
+                slot.SetReady(lp.isReady);
+            }
+
+            // Un-ready only
+            if (cancel && lp.isReady)
+            {
+                lp.isReady = false;
+                slot.SetReady(false);
+            }
+        }
+    }
+
+    private static int Mod(int x, int m) => (x % m + m) % m;
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Game start
 
     private bool AllPlayersReady()
     {
-        if (players.Count == 0) return false;
-        for (int i = 0; i < players.Count; i++)
-        {
-            if (!slots[i].IsReady)
-                return false;
-        }
+        if (_lobbyPlayers.Count == 0) return false;
+        foreach (var p in _lobbyPlayers)
+            if (!p.isReady) return false;
         return true;
     }
 
     private void StartCountdown()
     {
-        state = GameState.Countdown;
-        countdownTimer = countdownTime;
+        if (_state == LobbyState.Countdown || _state == LobbyState.Playing) return;
 
-        _joinInputAction?.Disable();
-        inputManager.DisableJoining();
+        _state = LobbyState.Countdown;
+        _countdownTimer = countdownTime;
+        _joinAction?.Disable();
 
-        if (countdownText != null)
-            countdownText.gameObject.SetActive(true);
+        if (_countdownText != null) _countdownText.gameObject.SetActive(true);
     }
 
     private void BeginGame()
     {
-        state = GameState.Playing;
+        _state = LobbyState.Playing;
+        if (_joinCanvas != null) _joinCanvas.SetActive(false);
+        if (timerScript != null) timerScript.tick = true;
 
-        if (joinCanvas != null)
-            joinCanvas.SetActive(false);
-
-        if (timerScript != null)
-            timerScript.tick = true;
-
-        for (int i = 0; i < players.Count; i++)
+        for (int i = 0; i < _lobbyPlayers.Count; i++)
         {
-            PlayerInput pi = players[i];
-            CharacterData chosenChar = slots[i].SelectedCharacter;
+            LobbyPlayer lp = _lobbyPlayers[i];
+            CharacterData cd = characters[lp.characterIndex];
 
-            if (pi == null) continue;
+            Vector3 pos = spawnPoints != null && i < spawnPoints.Count && spawnPoints[i] != null
+                             ? spawnPoints[i].position : Vector3.zero;
+            Quaternion rot = spawnPoints != null && i < spawnPoints.Count && spawnPoints[i] != null
+                             ? spawnPoints[i].rotation : Quaternion.identity;
 
-            // Teleport to spawn
-            if (spawnPoints != null && i < spawnPoints.Count && spawnPoints[i] != null)
-            {
-                pi.transform.SetPositionAndRotation(
-                    spawnPoints[i].position,
-                    spawnPoints[i].rotation
-                );
-            }
+            // Spawn the selected character prefab directly — it already has
+            // PlayerInput, moveTEST, CharacterController etc.
+            GameObject playerObj = Instantiate(cd.playerPrefab, pos, rot);
 
-            // Show player model
-            if (pi.TryGetComponent<HideUntilGameStart>(out var hider))
-                hider.Show();
+            // Bind this player's device to their PlayerInput
+            if (playerObj.TryGetComponent<PlayerInput>(out var pi))
+                pi.SwitchCurrentControlScheme(lp.device);
+            else
+                Debug.LogWarning($"[MJM] Character prefab missing PlayerInput.");
 
-            // Disable lobby input, enable gameplay input
-            if (pi.TryGetComponent<SlotInputHandler>(out var slotHandler))
-                slotHandler.enabled = false;
-
-            if (pi.TryGetComponent<moveTEST>(out var mover))
-                mover.enabled = true;
-
-            // Spawn character visual
-            if (chosenChar != null && chosenChar.playerPrefab != null)
-            {
-                GameObject skin = Instantiate(
-                    chosenChar.playerPrefab,
-                    pi.transform
-                );
-                skin.transform.localPosition = Vector3.zero;
-                skin.transform.localRotation = Quaternion.identity;
-            }
-
-            Debug.Log($"[MJM] Player {i + 1} started as {chosenChar?.characterName ?? "unknown"}");
+            Debug.Log($"[MJM] Player {i + 1} spawned as {cd.characterName} at {pos}");
         }
     }
 
     #endregion
 
+    // ─────────────────────────────────────────────────────────────────────────
     #region UI
 
-    private void UpdateInstructionText()
+    private void RefreshInstructionText()
     {
-        if (instructionText == null) return;
-
-        if (state == GameState.Joining)
+        if (_instructionText == null) return;
+        _instructionText.text = _state switch
         {
-            instructionText.text = players.Count switch
-            {
-                0 => "PRESS ANY BUTTON TO JOIN",
-                int n when n < maxPlayers => $"{n} PLAYER(S) JOINED — PRESS A BUTTON TO JOIN",
-                _ => "MAX PLAYERS — GET READY"
-            };
-        }
-        else if (state == GameState.CharacterSelect)
-        {
-            instructionText.text = "SELECT CHARACTER — PRESS SUBMIT TO READY";
-        }
-        else
-        {
-            instructionText.text = "";
-        }
+            LobbyState.Joining => _lobbyPlayers.Count == 0
+                                          ? "PRESS ANY BUTTON TO JOIN"
+                                          : $"{_lobbyPlayers.Count} PLAYER(S) — PRESS TO JOIN",
+            LobbyState.CharacterSelect => "SELECT CHARACTER — PRESS SUBMIT TO READY UP",
+            _ => ""
+        };
     }
 
     private void BuildUI()
@@ -316,258 +309,165 @@ public class MultiplayerJoinManager : MonoBehaviour
         var canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 100;
-
         var scaler = canvasObj.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920, 1080);
         scaler.matchWidthOrHeight = 0.5f;
-
         canvasObj.AddComponent<GraphicRaycaster>();
-        joinCanvas = canvasObj;
+        _joinCanvas = canvasObj;
 
-        // Background
         CreateStretchedImage(canvasObj.transform, "Background", new Color(0.08f, 0.08f, 0.08f))
             .rectTransform.SetAsFirstSibling();
 
-        // Player slots
         for (int i = 0; i < maxPlayers; i++)
-            slots.Add(BuildSlot(canvasObj.transform, i));
+            _slots.Add(BuildSlot(canvasObj.transform, i));
 
-        // Instruction text
-        instructionText = CreateText(
-            canvasObj.transform, "InstructionText",
-            "PRESS ANY BUTTON TO JOIN", 36, Color.white, TextAnchor.UpperCenter
-        );
-        SetAnchors(instructionText.rectTransform,
+        _instructionText = CreateText(canvasObj.transform, "InstructionText",
+            "PRESS ANY BUTTON TO JOIN", 36, Color.white, TextAnchor.UpperCenter);
+        SetAnchors(_instructionText.rectTransform,
             new Vector2(0, 1), new Vector2(1, 1), Vector2.zero, new Vector2(0, -80));
 
-        // Start button (manual start if auto fails)
-        startButton = CreateButton(
-            canvasObj.transform, "StartButton", "START", 20,
-            new Color(0.15f, 0.65f, 0.20f)
-        );
-        var sRT = startButton.GetComponent<RectTransform>();
-        sRT.anchorMin = new Vector2(0.5f, 0);
-        sRT.anchorMax = new Vector2(0.5f, 0);
-        sRT.pivot = new Vector2(0.5f, 0);
-        sRT.anchoredPosition = new Vector2(0, 40);
+        _startButton = CreateButton(canvasObj.transform, "StartButton",
+            "START", 20, new Color(0.15f, 0.65f, 0.20f));
+        var sRT = _startButton.GetComponent<RectTransform>();
+        sRT.anchorMin = new Vector2(0.5f, 0); sRT.anchorMax = new Vector2(0.5f, 0);
+        sRT.pivot = new Vector2(0.5f, 0); sRT.anchoredPosition = new Vector2(0, 40);
         sRT.sizeDelta = new Vector2(180, 50);
-        startButton.interactable = false;
-        startButton.onClick.AddListener(StartCountdown);
+        _startButton.interactable = false;
+        _startButton.onClick.AddListener(StartCountdown);
 
-        // Countdown text
-        countdownText = CreateText(
-            canvasObj.transform, "CountdownText", "", 60,
-            Color.yellow, TextAnchor.MiddleCenter
-        );
-        var cRT = countdownText.rectTransform;
-        cRT.anchorMin = new Vector2(0.5f, 0.5f);
-        cRT.anchorMax = new Vector2(0.5f, 0.5f);
-        cRT.pivot = new Vector2(0.5f, 0.5f);
-        cRT.anchoredPosition = Vector2.zero;
+        _countdownText = CreateText(canvasObj.transform, "CountdownText",
+            "", 60, Color.yellow, TextAnchor.MiddleCenter);
+        var cRT = _countdownText.rectTransform;
+        cRT.anchorMin = new Vector2(0.5f, 0.5f); cRT.anchorMax = new Vector2(0.5f, 0.5f);
+        cRT.pivot = new Vector2(0.5f, 0.5f); cRT.anchoredPosition = Vector2.zero;
         cRT.sizeDelta = new Vector2(600, 100);
-        countdownText.gameObject.SetActive(false);
+        _countdownText.gameObject.SetActive(false);
     }
 
     private PlayerSlotUI BuildSlot(Transform parent, int index)
     {
-        Color teamColor = TeamColors[index];
+        Color tc = TeamColors[index];
 
         var slotObj = new GameObject($"PlayerSlot_{index}");
         slotObj.transform.SetParent(parent, false);
-
-        var bg = slotObj.AddComponent<Image>();
-        bg.color = new Color(0.18f, 0.18f, 0.18f);
-
+        var bg = slotObj.AddComponent<Image>(); bg.color = new Color(0.18f, 0.18f, 0.18f);
         var slotRT = slotObj.GetComponent<RectTransform>();
-        slotRT.anchorMin = new Vector2(0.5f, 0.5f);
-        slotRT.anchorMax = new Vector2(0.5f, 0.5f);
+        slotRT.anchorMin = new Vector2(0.5f, 0.5f); slotRT.anchorMax = new Vector2(0.5f, 0.5f);
         slotRT.pivot = new Vector2(0.5f, 0.5f);
-        slotRT.anchoredPosition = SlotPositions[index];
-        slotRT.sizeDelta = new Vector2(380, 310);
+        slotRT.anchoredPosition = SlotPositions[index]; slotRT.sizeDelta = new Vector2(380, 310);
 
         var slot = slotObj.AddComponent<PlayerSlotUI>();
         slot.PlayerIndex = index;
         slot.Characters = new List<CharacterData>(characters);
 
         // Header bar
-        var headerObj = new GameObject("HeaderBar");
-        headerObj.transform.SetParent(slotObj.transform, false);
-        var headerImg = headerObj.AddComponent<Image>();
-        headerImg.color = teamColor;
-        var hRT = headerObj.GetComponent<RectTransform>();
-        hRT.anchorMin = new Vector2(0, 1);
-        hRT.anchorMax = new Vector2(1, 1);
-        hRT.pivot = new Vector2(0.5f, 1);
-        hRT.anchoredPosition = Vector2.zero;
-        hRT.sizeDelta = new Vector2(0, 8);
-        slot.HeaderBar = headerImg;
+        var hObj = new GameObject("HeaderBar"); hObj.transform.SetParent(slotObj.transform, false);
+        var hImg = hObj.AddComponent<Image>(); hImg.color = tc;
+        var hRT = hObj.GetComponent<RectTransform>();
+        hRT.anchorMin = new Vector2(0, 1); hRT.anchorMax = new Vector2(1, 1);
+        hRT.pivot = new Vector2(0.5f, 1); hRT.anchoredPosition = Vector2.zero; hRT.sizeDelta = new Vector2(0, 8);
+        slot.HeaderBar = hImg;
 
         // Player label
-        var lbl = CreateText(
-            slotObj.transform, "PlayerLabel", "WAITING...",
-            16, teamColor, TextAnchor.MiddleLeft
-        );
+        var lbl = CreateText(slotObj.transform, "PlayerLabel", "WAITING...", 16, tc, TextAnchor.MiddleLeft);
         var lblRT = lbl.rectTransform;
-        lblRT.anchorMin = new Vector2(0, 1);
-        lblRT.anchorMax = new Vector2(1, 1);
-        lblRT.pivot = new Vector2(0, 1);
-        lblRT.anchoredPosition = new Vector2(12, -10);
-        lblRT.sizeDelta = new Vector2(-12, 28);
+        lblRT.anchorMin = new Vector2(0, 1); lblRT.anchorMax = new Vector2(1, 1);
+        lblRT.pivot = new Vector2(0, 1); lblRT.anchoredPosition = new Vector2(12, -10); lblRT.sizeDelta = new Vector2(-12, 28);
         slot.PlayerLabel = lbl;
 
-        // Preview image
-        var previewObj = new GameObject("PreviewImage");
-        previewObj.transform.SetParent(slotObj.transform, false);
-        var previewImg = previewObj.AddComponent<Image>();
-        previewImg.color = new Color(0.12f, 0.12f, 0.12f);
-        previewImg.preserveAspect = true;
-        var pRT = previewObj.GetComponent<RectTransform>();
-        pRT.anchorMin = new Vector2(0.5f, 1);
-        pRT.anchorMax = new Vector2(0.5f, 1);
-        pRT.pivot = new Vector2(0.5f, 1);
-        pRT.anchoredPosition = new Vector2(0, -46);
-        pRT.sizeDelta = new Vector2(160, 160);
-        previewImg.gameObject.SetActive(false);
-        slot.PreviewImage = previewImg;
+        // Portrait
+        var pObj = new GameObject("PortraitImage"); pObj.transform.SetParent(slotObj.transform, false);
+        var pImg = pObj.AddComponent<Image>();
+        pImg.color = new Color(0.12f, 0.12f, 0.12f); pImg.preserveAspect = true;
+        var pRT = pObj.GetComponent<RectTransform>();
+        pRT.anchorMin = new Vector2(0.5f, 1); pRT.anchorMax = new Vector2(0.5f, 1);
+        pRT.pivot = new Vector2(0.5f, 1); pRT.anchoredPosition = new Vector2(0, -46); pRT.sizeDelta = new Vector2(160, 160);
+        pImg.gameObject.SetActive(false); slot.PreviewImage = pImg;
 
         // Character name
-        var charName = CreateText(
-            slotObj.transform, "CharacterName", "Press button to join",
-            20, Color.white, TextAnchor.MiddleCenter
-        );
-        var cnRT = charName.rectTransform;
-        cnRT.anchorMin = new Vector2(0, 0.5f);
-        cnRT.anchorMax = new Vector2(1, 0.5f);
-        cnRT.pivot = new Vector2(0.5f, 0.5f);
-        cnRT.anchoredPosition = new Vector2(0, 22);
-        cnRT.sizeDelta = new Vector2(-20, 32);
-        slot.CharacterNameText = charName;
+        var cn = CreateText(slotObj.transform, "CharacterName", "Press button to join", 20, Color.white, TextAnchor.MiddleCenter);
+        var cnRT = cn.rectTransform;
+        cnRT.anchorMin = new Vector2(0, 0.5f); cnRT.anchorMax = new Vector2(1, 0.5f);
+        cnRT.pivot = new Vector2(0.5f, 0.5f); cnRT.anchoredPosition = new Vector2(0, 22); cnRT.sizeDelta = new Vector2(-20, 32);
+        slot.CharacterNameText = cn;
 
-        // Left arrow
-        var leftBtn = CreateArrowButton(
-            slotObj.transform, "LeftArrow", "<",
-            new Vector2(0, 0), new Vector2(0, 0), new Vector2(0.5f, 0.5f), new Vector2(40, 70)
-        );
-        slot.LeftArrow = leftBtn;
-        leftBtn.onClick.AddListener(slot.SelectPrevious);
+        // Arrows
+        var lb = CreateArrowButton(slotObj.transform, "LeftArrow", "<",
+            new Vector2(0, 0), new Vector2(0, 0), new Vector2(0.5f, 0.5f), new Vector2(40, 70));
+        slot.LeftArrow = lb; lb.onClick.AddListener(slot.SelectPrevious);
 
-        // Right arrow
-        var rightBtn = CreateArrowButton(
-            slotObj.transform, "RightArrow", ">",
-            new Vector2(1, 0), new Vector2(1, 0), new Vector2(0.5f, 0.5f), new Vector2(-40, 70)
-        );
-        slot.RightArrow = rightBtn;
-        rightBtn.onClick.AddListener(slot.SelectNext);
+        var rb = CreateArrowButton(slotObj.transform, "RightArrow", ">",
+            new Vector2(1, 0), new Vector2(1, 0), new Vector2(0.5f, 0.5f), new Vector2(-40, 70));
+        slot.RightArrow = rb; rb.onClick.AddListener(slot.SelectNext);
 
         // Ready button
-        var readyBtn = CreateButton(
-            slotObj.transform, "ReadyButton", "READY", 16, teamColor
-        );
-        var rdyRT = readyBtn.GetComponent<RectTransform>();
-        rdyRT.anchorMin = new Vector2(0, 0);
-        rdyRT.anchorMax = new Vector2(1, 0);
-        rdyRT.pivot = new Vector2(0.5f, 0);
-        rdyRT.anchoredPosition = new Vector2(0, 52);
-        rdyRT.sizeDelta = new Vector2(-200, 36);
-        readyBtn.onClick.AddListener(slot.ToggleReady);
-        readyBtn.gameObject.SetActive(false);
-        slot.ReadyButton = readyBtn;
+        var rdy = CreateButton(slotObj.transform, "ReadyButton", "READY", 16, tc);
+        var rdyRT = rdy.GetComponent<RectTransform>();
+        rdyRT.anchorMin = new Vector2(0, 0); rdyRT.anchorMax = new Vector2(1, 0);
+        rdyRT.pivot = new Vector2(0.5f, 0); rdyRT.anchoredPosition = new Vector2(0, 52); rdyRT.sizeDelta = new Vector2(-200, 36);
+        rdy.onClick.AddListener(slot.ToggleReady); rdy.gameObject.SetActive(false);
+        slot.ReadyButton = rdy;
 
         // Ready indicator
-        var readyInd = CreateText(
-            slotObj.transform, "ReadyIndicator", "READY", 18,
-            Color.green, TextAnchor.MiddleCenter
-        );
-        var riRT = readyInd.rectTransform;
-        riRT.anchorMin = new Vector2(0, 0);
-        riRT.anchorMax = new Vector2(1, 0);
-        riRT.pivot = new Vector2(0.5f, 0.5f);
-        riRT.anchoredPosition = new Vector2(0, 69);
-        riRT.sizeDelta = new Vector2(0, 30);
-        readyInd.gameObject.SetActive(false);
-        slot.ReadyIndicator = readyInd;
+        var ri = CreateText(slotObj.transform, "ReadyIndicator", "✔ READY", 18, Color.green, TextAnchor.MiddleCenter);
+        var riRT = ri.rectTransform;
+        riRT.anchorMin = new Vector2(0, 0); riRT.anchorMax = new Vector2(1, 0);
+        riRT.pivot = new Vector2(0.5f, 0); riRT.anchoredPosition = new Vector2(0, 69); riRT.sizeDelta = new Vector2(0, 30);
+        ri.gameObject.SetActive(false); slot.ReadyIndicator = ri;
 
         return slot;
     }
 
-    private static Image CreateStretchedImage(Transform parent, string name, Color color)
+    // ── Factory helpers ───────────────────────────────────────────────────────
+
+    private static Image CreateStretchedImage(Transform p, string n, Color c)
     {
-        var obj = new GameObject(name);
-        obj.transform.SetParent(parent, false);
-        var img = obj.AddComponent<Image>();
-        img.color = color;
-        var rt = obj.GetComponent<RectTransform>();
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = Vector2.zero;
-        rt.offsetMax = Vector2.zero;
+        var o = new GameObject(n); o.transform.SetParent(p, false);
+        var img = o.AddComponent<Image>(); img.color = c;
+        var rt = o.GetComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
         return img;
     }
 
-    private static Text CreateText(Transform parent, string name, string content,
-        int fontSize, Color color, TextAnchor alignment)
+    private static Text CreateText(Transform p, string n, string content, int size, Color c, TextAnchor a)
     {
-        var obj = new GameObject(name);
-        obj.transform.SetParent(parent, false);
-        var txt = obj.AddComponent<Text>();
-        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        txt.text = content;
-        txt.fontSize = fontSize;
-        txt.color = color;
-        txt.alignment = alignment;
-        return txt;
+        var o = new GameObject(n); o.transform.SetParent(p, false);
+        var t = o.AddComponent<Text>();
+        t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        t.text = content; t.fontSize = size; t.color = c; t.alignment = a;
+        return t;
     }
 
-    private static Button CreateButton(Transform parent, string name, string label,
-        int fontSize, Color bgColor)
+    private static Button CreateButton(Transform p, string n, string label, int size, Color bg)
     {
-        var obj = new GameObject(name);
-        obj.transform.SetParent(parent, false);
-        var img = obj.AddComponent<Image>();
-        img.color = bgColor;
-        var btn = obj.AddComponent<Button>();
-        btn.targetGraphic = img;
-
-        var textObj = new GameObject("Text");
-        textObj.transform.SetParent(obj.transform, false);
-        var txt = textObj.AddComponent<Text>();
-        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        txt.text = label;
-        txt.fontSize = fontSize;
-        txt.color = Color.white;
-        txt.alignment = TextAnchor.MiddleCenter;
-
-        var txtRT = txt.GetComponent<RectTransform>();
-        txtRT.anchorMin = Vector2.zero;
-        txtRT.anchorMax = Vector2.one;
-        txtRT.offsetMin = Vector2.zero;
-        txtRT.offsetMax = Vector2.zero;
-
+        var o = new GameObject(n); o.transform.SetParent(p, false);
+        var img = o.AddComponent<Image>(); img.color = bg;
+        var btn = o.AddComponent<Button>(); btn.targetGraphic = img;
+        var to = new GameObject("Text"); to.transform.SetParent(o.transform, false);
+        var t = to.AddComponent<Text>();
+        t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        t.text = label; t.fontSize = size; t.color = Color.white; t.alignment = TextAnchor.MiddleCenter;
+        var trt = to.GetComponent<RectTransform>();
+        trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one;
+        trt.offsetMin = Vector2.zero; trt.offsetMax = Vector2.zero;
         return btn;
     }
 
-    private static Button CreateArrowButton(Transform parent, string name, string symbol,
-        Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 position)
+    private static Button CreateArrowButton(Transform p, string n, string sym,
+        Vector2 aMin, Vector2 aMax, Vector2 pivot, Vector2 pos)
     {
-        var btn = CreateButton(parent, name, symbol, 22, new Color(0.35f, 0.35f, 0.35f));
+        var btn = CreateButton(p, n, sym, 22, new Color(0.35f, 0.35f, 0.35f));
         var rt = btn.GetComponent<RectTransform>();
-        rt.anchorMin = anchorMin;
-        rt.anchorMax = anchorMax;
-        rt.pivot = pivot;
-        rt.anchoredPosition = position;
-        rt.sizeDelta = new Vector2(44, 44);
+        rt.anchorMin = aMin; rt.anchorMax = aMax; rt.pivot = pivot;
+        rt.anchoredPosition = pos; rt.sizeDelta = new Vector2(44, 44);
         return btn;
     }
 
     private static void SetAnchors(RectTransform rt,
-        Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
-    {
-        rt.anchorMin = anchorMin;
-        rt.anchorMax = anchorMax;
-        rt.offsetMin = offsetMin;
-        rt.offsetMax = offsetMax;
-    }
+        Vector2 aMin, Vector2 aMax, Vector2 oMin, Vector2 oMax)
+    { rt.anchorMin = aMin; rt.anchorMax = aMax; rt.offsetMin = oMin; rt.offsetMax = oMax; }
 
     #endregion
 }

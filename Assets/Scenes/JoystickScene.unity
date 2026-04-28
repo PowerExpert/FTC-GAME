@@ -6591,9 +6591,17 @@ MonoBehaviour:
     spawnPoint: {fileID: 954104618}
   - prefab: {fileID: 514023581}
     spawnPoint: {fileID: 1558243237}
+  parent: {fileID: 1897328154}
+  playerObjects:
+  - {fileID: 3770114947664062171, guid: ce236781b819a9e4491df9a942aecfa2, type: 3}
+  - {fileID: 3770114947664062171, guid: 6608503052ecef74b9b3f8d34869ad19, type: 3}
+  playerSpawns:
+  - {fileID: 1494213537}
+  - {fileID: 659412308}
+  - {fileID: 954104619}
+  - {fileID: 1558243238}
   blueScore: {fileID: 843737796}
   redScore: {fileID: 1362838937}
-  parent: {fileID: 1897328154}
 --- !u!4 &813996163
 Transform:
   m_ObjectHideFlags: 0
@@ -8941,7 +8949,6 @@ MonoBehaviour:
   characters:
   - {fileID: 11400000, guid: 5ed1a2d50b017a842a6e5c35bb74989d, type: 2}
   - {fileID: 11400000, guid: aa822972629b0eb4a8242e7735ff1277, type: 2}
-  inputManager: {fileID: 1077063995}
   timerScript: {fileID: 1077063991}
   spawnPoints:
   - {fileID: 1494213537}

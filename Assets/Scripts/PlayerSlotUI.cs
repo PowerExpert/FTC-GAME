@@ -4,14 +4,16 @@ using UnityEngine.InputSystem;
 using System.Collections.Generic;
 
 /// <summary>
-/// UI slot for one player. Shows character selection and ready state.
+/// UI slot for one player in the lobby.
+/// Driven entirely by MultiplayerJoinManager — no PlayerInput reference needed.
 /// </summary>
 public class PlayerSlotUI : MonoBehaviour
 {
-    [Header("UI References")]
-    public int PlayerIndex = 0;
+    [Header("Config")]
+    public int PlayerIndex;
     public List<CharacterData> Characters;
 
+    [Header("UI References")]
     public Text PlayerLabel;
     public Text CharacterNameText;
     public Text DescriptionText;
@@ -22,29 +24,34 @@ public class PlayerSlotUI : MonoBehaviour
     public Button RightArrow;
     public Button ReadyButton;
 
-    public bool IsReady { get; private set; }
+    // ?? Public state ??????????????????????????????????????????????????????????
     public bool IsOccupied { get; private set; }
-    public CharacterData SelectedCharacter =>
-        (Characters != null && Characters.Count > 0) ? Characters[_charIndex] : null;
+    public bool IsReady { get; private set; }
+    public CharacterData SelectedCharacter { get; private set; }
 
     private int _charIndex;
-    private PlayerInput _input;
 
     private static readonly Color[] TeamColors =
     {
-        new(0.85f, 0.15f, 0.15f), new(0.15f, 0.45f, 0.85f),
-        new(0.15f, 0.75f, 0.25f), new(0.85f, 0.65f, 0.10f)
+        new(0.85f, 0.15f, 0.15f),
+        new(0.15f, 0.45f, 0.85f),
+        new(0.15f, 0.75f, 0.25f),
+        new(0.85f, 0.65f, 0.10f)
     };
 
-    public void AssignPlayer(PlayerInput input)
+    // ?????????????????????????????????????????????????????????????????????????
+
+    /// <summary>
+    /// Called when a device joins. Shows the slot as occupied.
+    /// </summary>
+    public void AssignPlayerDevice(int characterIndex, List<CharacterData> chars)
     {
-        _input = input;
+        Characters = chars;
         IsOccupied = true;
         IsReady = false;
         _charIndex = 0;
 
         Color col = TeamColors[Mathf.Clamp(PlayerIndex, 0, TeamColors.Length - 1)];
-
         if (HeaderBar != null) HeaderBar.color = col;
         if (PlayerLabel != null)
         {
@@ -52,19 +59,22 @@ public class PlayerSlotUI : MonoBehaviour
             PlayerLabel.color = col;
         }
 
-        SetArrowsInteractable(true);
         if (ReadyButton != null) ReadyButton.gameObject.SetActive(true);
         if (ReadyIndicator != null) ReadyIndicator.gameObject.SetActive(false);
         if (PreviewImage != null) PreviewImage.gameObject.SetActive(true);
+        SetArrowsActive(true);
 
-        RefreshDisplay();
+        SetCharacterIndex(characterIndex);
     }
 
+    /// <summary>
+    /// Called when a player leaves the lobby.
+    /// </summary>
     public void UnassignPlayer()
     {
-        _input = null;
         IsOccupied = false;
         IsReady = false;
+        SelectedCharacter = null;
         _charIndex = 0;
 
         if (PlayerLabel != null) PlayerLabel.text = "WAITING...";
@@ -73,46 +83,86 @@ public class PlayerSlotUI : MonoBehaviour
         if (ReadyButton != null) ReadyButton.gameObject.SetActive(false);
         if (ReadyIndicator != null) ReadyIndicator.gameObject.SetActive(false);
         if (PreviewImage != null) PreviewImage.gameObject.SetActive(false);
-
-        SetArrowsInteractable(false);
+        SetArrowsActive(false);
     }
+
+    /// <summary>
+    /// Updates which character is displayed. Called by MJM when player navigates.
+    /// </summary>
+    public void SetCharacterIndex(int index)
+    {
+        if (Characters == null || Characters.Count == 0) return;
+
+        _charIndex = ((index % Characters.Count) + Characters.Count) % Characters.Count;
+        SelectedCharacter = Characters[_charIndex];
+
+        if (CharacterNameText != null)
+            CharacterNameText.text = SelectedCharacter?.characterName ?? "";
+
+        if (DescriptionText != null)
+            DescriptionText.text = SelectedCharacter?.description ?? "";
+
+        if (PreviewImage != null)
+        {
+            Sprite portrait = SelectedCharacter?.previewSprite;
+            if (portrait != null)
+            {
+                PreviewImage.sprite = portrait;
+                PreviewImage.gameObject.SetActive(true);
+            }
+            else
+            {
+                PreviewImage.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Syncs ready state and updates UI. Called by MJM on submit/cancel.
+    /// </summary>
+    public void SetReady(bool ready)
+    {
+        if (!IsOccupied) return;
+        IsReady = ready;
+
+        if (ReadyIndicator != null) ReadyIndicator.gameObject.SetActive(ready);
+        if (ReadyButton != null) ReadyButton.gameObject.SetActive(!ready);
+        SetArrowsActive(!ready);
+    }
+
+    // ?? Still available for button onClick listeners in the UI ????????????????
 
     public void SelectNext()
     {
-        if (!IsOccupied || IsReady || Characters == null || Characters.Count == 0) return;
-        _charIndex = (_charIndex + 1) % Characters.Count;
-        RefreshDisplay();
+        if (!IsOccupied || IsReady) return;
+        SetCharacterIndex(_charIndex + 1);
     }
 
     public void SelectPrevious()
     {
-        if (!IsOccupied || IsReady || Characters == null || Characters.Count == 0) return;
-        _charIndex = (_charIndex - 1 + Characters.Count) % Characters.Count;
-        RefreshDisplay();
+        if (!IsOccupied || IsReady) return;
+        SetCharacterIndex(_charIndex - 1);
     }
 
     public void ToggleReady()
     {
-        if (!IsOccupied) return;
-        IsReady = !IsReady;
-        SetArrowsInteractable(!IsReady);
-        if (ReadyButton != null) ReadyButton.gameObject.SetActive(!IsReady);
-        if (ReadyIndicator != null) ReadyIndicator.gameObject.SetActive(IsReady);
+        SetReady(!IsReady);
     }
 
-    private void RefreshDisplay()
+    // ?? Helpers ???????????????????????????????????????????????????????????????
+
+    private void SetArrowsActive(bool value)
     {
-        var selected = SelectedCharacter;
-        if (selected == null) return;
-
-        if (CharacterNameText != null) CharacterNameText.text = selected.characterName;
-        if (DescriptionText != null) DescriptionText.text = selected.description;
-        if (PreviewImage != null) PreviewImage.sprite = selected.previewSprite;
+        if (LeftArrow != null) { LeftArrow.gameObject.SetActive(value); LeftArrow.interactable = value; }
+        if (RightArrow != null) { RightArrow.gameObject.SetActive(value); RightArrow.interactable = value; }
     }
 
-    private void SetArrowsInteractable(bool value)
+    // Legacy — kept so existing code that calls AssignPlayer(PlayerInput) still compiles.
+    // MJM no longer uses this path.
+    public void AssignPlayer(PlayerInput input)
     {
-        if (LeftArrow != null) LeftArrow.interactable = value;
-        if (RightArrow != null) RightArrow.interactable = value;
+        AssignPlayerDevice(0, Characters);
     }
+
+    public PlayerInput GetAssignedPlayerInput() => null;
 }

@@ -27,9 +27,6 @@ public class moveTEST : MonoBehaviour
     {
         _controller = GetComponent<CharacterController>();
         _playerInput = GetComponent<PlayerInput>();
-
-        // Disabled during lobby. BeginGame() enables this component.
-        enabled = false;
     }
 
     private void Update()
